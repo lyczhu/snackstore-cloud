@@ -1,13 +1,13 @@
 package com.lawyus.snackstore.order.service.impl;
 
-import com.alibaba.fastjson2.JSON;
-import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
-import com.lawyus.snackstore.order.feign.ProductFeignClient;
+import com.lawyus.snackstore.order.feign.product.ProductClient;
+import com.lawyus.snackstore.order.feign.product.ProductFeignDetailVO;
 import com.lawyus.snackstore.order.mapper.OrderItemMapper;
 import com.lawyus.snackstore.order.mapper.OrderMapper;
 import com.lawyus.snackstore.order.model.dto.OrderCreateDTO;
@@ -37,10 +37,10 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
-    private final ProductFeignClient productFeignClient;
+    private final ProductClient productFeignClient;
 
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
-                            ProductFeignClient productFeignClient) {
+                            ProductClient productFeignClient) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.productFeignClient = productFeignClient;
@@ -53,6 +53,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = new Order();
         order.setUserId(userId);
         order.setOrderNo(generateOrderNo());
+        order.setTotalAmount(totalAmount);
         order.setStatus(ORDER_STATUS_PENDING);
         order.setReceiverName(dto.getReceiverName());
         order.setReceiverPhone(dto.getReceiverPhone());
@@ -60,16 +61,16 @@ public class OrderServiceImpl implements OrderService {
         orderMapper.insert(order);
 
         for (OrderCreateDTO.OrderItemDTO itemDTO : dto.getItems()) {
-            Result<?> productResult = productFeignClient.getProductDetail(itemDTO.getProductId());
+            Result<ProductFeignDetailVO> productResult = productFeignClient.getProductDetail(itemDTO.getProductId());
             if (productResult == null || productResult.getData() == null) {
                 throw BusinessExceptionEnum.PRODUCT_NOT_FOUND.getException();
             }
 
-            JSONObject product = JSON.parseObject(JSON.toJSONString(productResult.getData()));
-            String productName = product.getString("name");
-            String productImage = product.getString("coverImage");
-            BigDecimal productPrice = product.getBigDecimal("price");
-            Integer productStatus = product.getInteger("status");
+            ProductFeignDetailVO product = productResult.getData();
+            String productName = product.getName();
+            String productImage = product.getCoverImage();
+            BigDecimal productPrice = product.getPrice();
+            Integer productStatus = product.getStatus();
 
             if (productStatus == null || productStatus == 0) {
                 throw BusinessExceptionEnum.PRODUCT_OFF_SHELF.getException();
@@ -99,6 +100,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @SentinelResource("getOrderDetail")
     public OrderVO getOrderDetail(Long id, Long userId) {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
@@ -111,6 +113,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @SentinelResource("getOrderList")
     public PageResult<OrderVO> getOrderList(OrderQueryDTO queryDTO) {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         if (queryDTO.getStatus() != null) {

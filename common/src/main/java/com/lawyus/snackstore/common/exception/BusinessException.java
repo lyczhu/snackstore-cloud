@@ -2,12 +2,15 @@ package com.lawyus.snackstore.common.exception;
 
 import lombok.Getter;
 
+import java.io.Serial;
+
 /**
  * 自定义业务异常类
  */
 @Getter
 public class BusinessException extends RuntimeException {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     /**
