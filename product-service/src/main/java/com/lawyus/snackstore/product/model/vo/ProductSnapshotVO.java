@@ -1,6 +1,5 @@
-package com.lawyus.snackstore.product.model.entity;
+package com.lawyus.snackstore.product.model.vo;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,13 +8,17 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
-@TableName("t_product")
-public class Product {
+public class ProductSnapshotVO {
 
-    @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long productId;
+
     private Long categoryId;
+
+    private String categoryName;
+
+    private Integer categorySort;
 
     private String name;
 
@@ -31,9 +34,5 @@ public class Product {
 
     private Integer status;
 
-    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
 }

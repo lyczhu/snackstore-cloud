@@ -1,5 +1,11 @@
 package com.lawyus.snackstore.product.service.impl;
 
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -14,27 +20,25 @@ import com.lawyus.snackstore.product.model.entity.ProductCategory;
 import com.lawyus.snackstore.product.model.vo.ProductDetailVO;
 import com.lawyus.snackstore.product.model.vo.ProductVO;
 import com.lawyus.snackstore.product.service.ProductService;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
-import java.util.stream.Collectors;
+import com.lawyus.snackstore.product.service.ProductSnapshotService;
 
 @Service
 public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
     private final ProductCategoryMapper categoryMapper;
+    private final ProductSnapshotService snapshotService;
 
-    public ProductServiceImpl(ProductMapper productMapper, ProductCategoryMapper categoryMapper) {
+    public ProductServiceImpl(ProductMapper productMapper, ProductCategoryMapper categoryMapper, ProductSnapshotService snapshotService) {
         this.productMapper = productMapper;
         this.categoryMapper = categoryMapper;
+        this.snapshotService = snapshotService;
     }
 
     @Override
     public PageResult<ProductVO> getProductList(ProductQueryDTO queryDTO) {
-        Map<Long, String> categoryMap = categoryMapper.selectList(null).stream()
-                .collect(Collectors.toMap(ProductCategory::getId, ProductCategory::getName));
+        Map<Long, ProductCategory> categoryMap = categoryMapper.selectList(null).stream()
+                .collect(Collectors.toMap(ProductCategory::getId, c -> c));
 
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
         if (queryDTO.getCategoryId() != null) {
@@ -78,6 +82,7 @@ public class ProductServiceImpl implements ProductService {
         product.setDetail(dto.getDetail());
         product.setStatus(dto.getStatus() != null ? dto.getStatus() : 1);
         productMapper.insert(product);
+        snapshotService.createSnapshot(product);
         return convertToVO(product, getCategoryMap());
     }
 
@@ -88,6 +93,7 @@ public class ProductServiceImpl implements ProductService {
         if (product == null) {
             throw BusinessExceptionEnum.PRODUCT_NOT_FOUND.getException();
         }
+        snapshotService.createSnapshot(product);
         if (dto.getCategoryId() != null) {
             product.setCategoryId(dto.getCategoryId());
         }
@@ -123,6 +129,7 @@ public class ProductServiceImpl implements ProductService {
         if (product == null) {
             throw BusinessExceptionEnum.PRODUCT_NOT_FOUND.getException();
         }
+        snapshotService.createSnapshot(product);
         productMapper.deleteById(id);
     }
 
@@ -133,6 +140,7 @@ public class ProductServiceImpl implements ProductService {
         if (product == null) {
             throw BusinessExceptionEnum.PRODUCT_NOT_FOUND.getException();
         }
+        snapshotService.createSnapshot(product);
         product.setStatus(status);
         productMapper.updateById(product);
     }
@@ -158,16 +166,22 @@ public class ProductServiceImpl implements ProductService {
         return true;
     }
 
-    private Map<Long, String> getCategoryMap() {
+    private Map<Long, ProductCategory> getCategoryMap() {
         return categoryMapper.selectList(null).stream()
-                .collect(Collectors.toMap(ProductCategory::getId, ProductCategory::getName));
+                .collect(Collectors.toMap(ProductCategory::getId, c -> c));
     }
 
-    private ProductVO convertToVO(Product product, Map<Long, String> categoryMap) {
+    private ProductVO convertToVO(Product product, Map<Long, ProductCategory> categoryMap) {
         ProductVO vo = new ProductVO();
         vo.setId(product.getId());
         vo.setCategoryId(product.getCategoryId());
-        vo.setCategoryName(product.getCategoryId() != null ? categoryMap.get(product.getCategoryId()) : null);
+        if (product.getCategoryId() != null) {
+            ProductCategory category = categoryMap.get(product.getCategoryId());
+            if (category != null) {
+                vo.setCategoryName(category.getName());
+                vo.setCategorySort(category.getSort());
+            }
+        }
         vo.setName(product.getName());
         vo.setCoverImage(product.getCoverImage());
         vo.setPrice(product.getPrice());
@@ -178,11 +192,17 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductDetailVO convertToDetailVO(Product product) {
-        Map<Long, String> categoryMap = getCategoryMap();
+        Map<Long, ProductCategory> categoryMap = getCategoryMap();
         ProductDetailVO vo = new ProductDetailVO();
         vo.setId(product.getId());
         vo.setCategoryId(product.getCategoryId());
-        vo.setCategoryName(product.getCategoryId() != null ? categoryMap.get(product.getCategoryId()) : null);
+        if (product.getCategoryId() != null) {
+            ProductCategory category = categoryMap.get(product.getCategoryId());
+            if (category != null) {
+                vo.setCategoryName(category.getName());
+                vo.setCategorySort(category.getSort());
+            }
+        }
         vo.setName(product.getName());
         vo.setCoverImage(product.getCoverImage());
         vo.setPrice(product.getPrice());

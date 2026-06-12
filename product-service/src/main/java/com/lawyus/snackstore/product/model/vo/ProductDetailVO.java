@@ -15,6 +15,8 @@ public class ProductDetailVO {
 
     private String categoryName;
 
+    private Integer categorySort;
+
     private String name;
 
     private String coverImage;

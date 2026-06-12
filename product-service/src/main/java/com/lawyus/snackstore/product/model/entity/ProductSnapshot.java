@@ -9,13 +9,19 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
-@TableName("t_product")
-public class Product {
+@TableName("t_product_snapshot")
+public class ProductSnapshot {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    private Long productId;
+
     private Long categoryId;
+
+    private String categoryName;
+
+    private Integer categorySort;
 
     private String name;
 
@@ -33,7 +39,4 @@ public class Product {
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updatedAt;
 }
