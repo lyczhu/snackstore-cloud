@@ -12,7 +12,6 @@ public class CorsConfig {
     /**
      * 跨域配置
      * 在 Nacos 配置文件中配置的跨域内容不生效，在这里手动配置 Bean 解决不生效问题
-     * @return
      */
     @Bean
     public CorsWebFilter corsWebFilter() {

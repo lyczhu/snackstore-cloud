@@ -1,0 +1,32 @@
+[
+  {
+    "resource": "user-service",
+    "resourceMode": 1,
+    "grade": 1,
+    "count": 50,
+    "intervalSec": 1,
+    "controlBehavior": 0,
+    "burst": 0,
+    "maxQueueingTimeoutMs": 0
+  },
+  {
+    "resource": "product-service",
+    "resourceMode": 1,
+    "grade": 1,
+    "count": 100,
+    "intervalSec": 1,
+    "controlBehavior": 0,
+    "burst": 0,
+    "maxQueueingTimeoutMs": 0
+  },
+  {
+    "resource": "order-service",
+    "resourceMode": 1,
+    "grade": 1,
+    "count": 30,
+    "intervalSec": 1,
+    "controlBehavior": 0,
+    "burst": 0,
+    "maxQueueingTimeoutMs": 0
+  }
+]
