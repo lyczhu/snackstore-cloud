@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.product.mapper.ProductCategoryMapper;
 import com.lawyus.snackstore.product.mapper.ProductSnapshotMapper;

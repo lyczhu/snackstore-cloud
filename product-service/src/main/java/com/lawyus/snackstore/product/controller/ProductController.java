@@ -1,7 +1,7 @@
 package com.lawyus.snackstore.product.controller;
 
-import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.product.model.dto.BatchStockDTO;
 import com.lawyus.snackstore.product.model.dto.ProductDTO;
 import com.lawyus.snackstore.product.model.dto.ProductQueryDTO;
 import com.lawyus.snackstore.product.model.vo.ProductDetailVO;
@@ -9,6 +9,8 @@ import com.lawyus.snackstore.product.model.vo.ProductVO;
 import com.lawyus.snackstore.product.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/product")
@@ -21,8 +23,13 @@ public class ProductController {
     }
 
     @GetMapping("/list")
-    public Result<PageResult<ProductVO>> getProductList(ProductQueryDTO queryDTO) {
+    public Result<com.lawyus.snackstore.common.response.PageResult<ProductVO>> getProducts(ProductQueryDTO queryDTO) {
         return Result.success(productService.getProductList(queryDTO));
+    }
+
+    @GetMapping("/listByIds")
+    public Result<List<ProductVO>> getProductsByIds(List<Long> idList) {
+        return Result.success(productService.getProductListByIds(idList));
     }
 
     @GetMapping("/{id}")
@@ -60,5 +67,15 @@ public class ProductController {
     @PostMapping("/rollbackStock")
     public Result<Boolean> rollbackStock(@RequestParam Long productId, @RequestParam Integer quantity) {
         return Result.success(productService.rollbackStock(productId, quantity));
+    }
+
+    @PostMapping("/batchDeductStock")
+    public Result<Boolean> batchDeductStock(@Valid @RequestBody BatchStockDTO batchDTO) {
+        return Result.success(productService.batchDeductStock(batchDTO));
+    }
+
+    @PostMapping("/batchRollbackStock")
+    public Result<Boolean> batchRollbackStock(@Valid @RequestBody BatchStockDTO batchDTO) {
+        return Result.success(productService.batchRollbackStock(batchDTO));
     }
 }

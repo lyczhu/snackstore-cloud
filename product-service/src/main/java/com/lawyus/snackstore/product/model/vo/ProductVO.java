@@ -28,4 +28,8 @@ public class ProductVO {
     private String description;
 
     private Integer status;
+
+    private String highlightedName;
+
+    private String highlightedDescription;
 }

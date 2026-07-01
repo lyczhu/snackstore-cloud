@@ -1,7 +1,7 @@
 package com.lawyus.snackstore.product.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.product.mapper.ProductCategoryMapper;
 import com.lawyus.snackstore.product.model.dto.ProductCategoryDTO;
 import com.lawyus.snackstore.product.model.entity.ProductCategory;
