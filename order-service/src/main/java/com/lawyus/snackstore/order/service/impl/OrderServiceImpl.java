@@ -3,11 +3,13 @@ package com.lawyus.snackstore.order.service.impl;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.order.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.order.feign.product.BatchStockDTO;
 import com.lawyus.snackstore.order.feign.product.ProductClient;
 import com.lawyus.snackstore.order.feign.product.ProductFeignDetailVO;
+import com.lawyus.snackstore.order.feign.product.ProductVO;
 import com.lawyus.snackstore.order.mapper.OrderItemMapper;
 import com.lawyus.snackstore.order.mapper.OrderMapper;
 import com.lawyus.snackstore.order.model.dto.OrderCreateDTO;
@@ -24,8 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -37,66 +42,86 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
-    private final ProductClient productFeignClient;
+    private final ProductClient productClient;
 
     public OrderServiceImpl(OrderMapper orderMapper, OrderItemMapper orderItemMapper,
-                            ProductClient productFeignClient) {
+                            ProductClient productClient) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
-        this.productFeignClient = productFeignClient;
+        this.productClient = productClient;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public OrderVO createOrder(Long userId, OrderCreateDTO dto) {
-        BigDecimal totalAmount = BigDecimal.ZERO;
+    public OrderVO createOrder(Long userId, OrderCreateDTO orderDto) {
+        String orderNo = generateOrderNo();
+        List<OrderItem> itemList = handleOrderItems(orderDto.getItems(), orderNo);
+
+        BigDecimal totalAmount = itemList.stream().map(OrderItem::getProductPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         Order order = new Order();
         order.setUserId(userId);
-        order.setOrderNo(generateOrderNo());
+        order.setOrderNo(orderNo);
         order.setTotalAmount(totalAmount);
         order.setStatus(ORDER_STATUS_PENDING);
-        order.setReceiverName(dto.getReceiverName());
-        order.setReceiverPhone(dto.getReceiverPhone());
-        order.setReceiverAddress(dto.getReceiverAddress());
+        order.setReceiverName(orderDto.getReceiverName());
+        order.setReceiverPhone(orderDto.getReceiverPhone());
+        order.setReceiverAddress(orderDto.getReceiverAddress());
         orderMapper.insert(order);
 
-        for (OrderCreateDTO.OrderItemDTO itemDTO : dto.getItems()) {
-            Result<ProductFeignDetailVO> productResult = productFeignClient.getProductDetail(itemDTO.getProductId());
-            if (productResult == null || productResult.getData() == null) {
-                throw BusinessExceptionEnum.PRODUCT_NOT_FOUND.getException();
-            }
-
-            ProductFeignDetailVO product = productResult.getData();
-            String productName = product.getName();
-            String productImage = product.getCoverImage();
-            BigDecimal productPrice = product.getPrice();
-            Integer productStatus = product.getStatus();
-
-            if (productStatus == null || productStatus == 0) {
-                throw BusinessExceptionEnum.PRODUCT_OFF_SHELF.getException();
-            }
-
-            Result<Boolean> stockResult = productFeignClient.deductStock(itemDTO.getProductId(), itemDTO.getQuantity());
-            if (stockResult == null || stockResult.getData() == null || !stockResult.getData()) {
-                throw BusinessExceptionEnum.STOCK_NOT_ENOUGH.getException();
-            }
-
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrderId(order.getId());
-            orderItem.setProductId(itemDTO.getProductId());
-            orderItem.setProductName(productName);
-            orderItem.setProductImage(productImage);
-            orderItem.setProductPrice(productPrice);
-            orderItem.setQuantity(itemDTO.getQuantity());
-            orderItemMapper.insert(orderItem);
-
-            totalAmount = totalAmount.add(productPrice.multiply(BigDecimal.valueOf(itemDTO.getQuantity())));
-        }
-
-        order.setTotalAmount(totalAmount);
-        orderMapper.updateById(order);
+        itemList.forEach(item -> item.setOrderId(order.getId()));
+        orderItemMapper.insert(itemList);
 
         return convertToVO(order);
+    }
+
+    private List<OrderItem> handleOrderItems(List<OrderCreateDTO.OrderItemDTO> orderItems, String orderNo) {
+        List<Long> productIdList = orderItems.stream()
+                .map(OrderCreateDTO.OrderItemDTO::getProductId).toList();
+        Map<Long, Integer> productMap = orderItems.stream()
+                .collect(Collectors.toMap(OrderCreateDTO.OrderItemDTO::getProductId,
+                        OrderCreateDTO.OrderItemDTO::getQuantity));
+
+        Result<List<ProductVO>> result = productClient.getProductsByIds(productIdList);
+        if (result == null || result.getData() == null) {
+            throw BusinessExceptionEnum.PRODUCT_NOT_FOUND.getException();
+        }
+
+        List<ProductVO> productVOList = result.getData();
+        for (ProductVO pVO : productVOList) {
+            if (pVO.getStatus() == null || pVO.getStatus() == 0) {
+                throw BusinessExceptionEnum.PRODUCT_OFF_SHELF.getException();
+            }
+        }
+
+        BatchStockDTO batchDTO = new BatchStockDTO();
+        batchDTO.setOrderNo(orderNo);
+        List<BatchStockDTO.StockItemDTO> stockItems = orderItems.stream().map(item -> {
+            BatchStockDTO.StockItemDTO stockItem = new BatchStockDTO.StockItemDTO();
+            stockItem.setProductId(item.getProductId());
+            stockItem.setQuantity(item.getQuantity());
+            return stockItem;
+        }).toList();
+        batchDTO.setItems(stockItems);
+
+        Result<Boolean> stockResult = productClient.batchDeductStock(batchDTO);
+        if (stockResult == null || stockResult.getData() == null || !stockResult.getData()) {
+            log.error("批量扣减库存失败, 订单号: {}", orderNo);
+            throw BusinessExceptionEnum.STOCK_NOT_ENOUGH.getException();
+        }
+
+        List<OrderItem> itemList = new ArrayList<>();
+        for (ProductVO pVO : productVOList) {
+            Integer quantity = productMap.get(pVO.getId());
+            OrderItem orderItem = new OrderItem();
+            orderItem.setProductId(pVO.getId());
+            orderItem.setProductName(pVO.getName());
+            orderItem.setProductImage(pVO.getCoverImage());
+            orderItem.setProductPrice(pVO.getPrice());
+            orderItem.setQuantity(quantity);
+            itemList.add(orderItem);
+        }
+        return itemList;
     }
 
     @Override
@@ -166,9 +191,18 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItem> items = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, id));
-        for (OrderItem item : items) {
-            productFeignClient.rollbackStock(item.getProductId(), item.getQuantity());
-        }
+
+        BatchStockDTO batchDTO = new BatchStockDTO();
+        batchDTO.setOrderNo(order.getOrderNo());
+        List<BatchStockDTO.StockItemDTO> stockItems = items.stream().map(item -> {
+            BatchStockDTO.StockItemDTO stockItem = new BatchStockDTO.StockItemDTO();
+            stockItem.setProductId(item.getProductId());
+            stockItem.setQuantity(item.getQuantity());
+            return stockItem;
+        }).toList();
+        batchDTO.setItems(stockItems);
+
+        productClient.batchRollbackStock(batchDTO);
 
         order.setStatus(ORDER_STATUS_CANCELLED);
         orderMapper.updateById(order);

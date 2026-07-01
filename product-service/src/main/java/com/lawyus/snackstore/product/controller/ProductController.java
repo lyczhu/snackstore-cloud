@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.product.controller;
 
+import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.product.model.dto.BatchStockDTO;
 import com.lawyus.snackstore.product.model.dto.ProductDTO;
@@ -23,12 +24,12 @@ public class ProductController {
     }
 
     @GetMapping("/list")
-    public Result<com.lawyus.snackstore.common.response.PageResult<ProductVO>> getProducts(ProductQueryDTO queryDTO) {
+    public Result<PageResult<ProductVO>> getProducts(ProductQueryDTO queryDTO) {
         return Result.success(productService.getProductList(queryDTO));
     }
 
-    @GetMapping("/listByIds")
-    public Result<List<ProductVO>> getProductsByIds(List<Long> idList) {
+    @PostMapping("/listByIds")
+    public Result<List<ProductVO>> getProductsByIds(@RequestBody List<Long> idList) {
         return Result.success(productService.getProductListByIds(idList));
     }
 
