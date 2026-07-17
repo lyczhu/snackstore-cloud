@@ -35,12 +35,15 @@ public enum ResultCode {
     CATEGORY_NOT_FOUND(3004, "分类不存在"),
     CATEGORY_ALREADY_EXISTS(3005, "分类已存在"),
     SNAPSHOT_NOT_FOUND(3006, "商品快照不存在"),
+    PRODUCT_SEARCH_ERROR(3007, "商品搜索异常"),
 
     ORDER_NOT_FOUND(4001, "订单不存在"),
     ORDER_STATUS_ERROR(4002, "订单状态异常"),
     ORDER_CREATE_FAILED(4003, "订单创建失败"),
     ORDER_CANNOT_CANCEL(4004, "订单无法取消"),
     ORDER_CANNOT_PAY(4005, "订单无法支付"),
+
+    STATISTICS_SERVICE_ERROR(5001, "统计服务异常"),
 
     RATE_LIMIT_EXCEEDED(6001, "请求频率超限"),
     SERVICE_DEGRADED(6002, "服务降级中，请稍后再试");

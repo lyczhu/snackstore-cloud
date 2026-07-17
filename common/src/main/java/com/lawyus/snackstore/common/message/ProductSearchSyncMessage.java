@@ -7,6 +7,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * 商品搜索索引同步消息
@@ -17,6 +18,10 @@ public class ProductSearchSyncMessage implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
+
+    private String eventId;
+
+    private LocalDateTime eventTime;
 
     private Long id;
 
@@ -41,6 +46,11 @@ public class ProductSearchSyncMessage implements Serializable {
     private LocalDateTime createdAt;
 
     private ChangeType changeType;
+
+    public ProductSearchSyncMessage() {
+        this.eventId = UUID.randomUUID().toString();
+        this.eventTime = LocalDateTime.now();
+    }
 
     public enum ChangeType {
         CREATED,

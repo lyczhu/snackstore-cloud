@@ -1,4 +1,4 @@
-package com.lawyus.snackstore.product.mapper;
+package com.lawyus.snackstore.product.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.lawyus.snackstore.product.model.entity.ProductSnapshot;

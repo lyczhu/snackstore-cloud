@@ -2,6 +2,8 @@ package com.lawyus.snackstore.product.service.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -13,7 +15,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
-import com.lawyus.snackstore.product.mapper.ProductMapper;
+import com.lawyus.snackstore.product.repository.ProductMapper;
 import com.lawyus.snackstore.product.model.dto.BatchStockDTO;
 import com.lawyus.snackstore.product.model.dto.ProductDTO;
 import com.lawyus.snackstore.product.model.dto.ProductQueryDTO;
@@ -66,8 +68,9 @@ public class ProductServiceImpl implements ProductService {
         Page<Product> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         Page<Product> result = productMapper.selectPage(page, wrapper);
 
+        Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
         return PageResult.success(
-                result.getRecords().stream().map(this::convertToVO).toList(),
+                result.getRecords().stream().map(p -> convertToVO(p, categoryMap)).toList(),
                 result.getCurrent(), result.getSize(), result.getTotal());
     }
 
@@ -85,13 +88,16 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductVO> getProductListByIds(List<Long> idList) {
-        return productMapper.selectByIds(idList).stream().map(this::convertToVO).toList();
+        List<Product> products = productMapper.selectBatchIds(idList);
+        Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
+        return products.stream().map(p -> convertToVO(p, categoryMap)).toList();
     }
 
     @Override
     public ProductDetailVO getProductDetail(Long id) {
         Product product = getProductEntity(id);
-        return convertToDetailVO(product);
+        Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
+        return convertToDetailVO(product, categoryMap);
     }
 
     @Override
@@ -118,7 +124,8 @@ public class ProductServiceImpl implements ProductService {
         productMapper.insert(product);
         snapshotService.createSnapshot(product);
         eventPublisher.publishEvent(new ProductChangedEvent(product.getId(), ChangeType.CREATED));
-        return convertToVO(product);
+        Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
+        return convertToVO(product, categoryMap);
     }
 
     @Override
@@ -155,7 +162,8 @@ public class ProductServiceImpl implements ProductService {
         }
         productMapper.updateById(product);
         eventPublisher.publishEvent(new ProductChangedEvent(product.getId(), ChangeType.UPDATED));
-        return convertToVO(product);
+        Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
+        return convertToVO(product, categoryMap);
     }
 
     @Override
@@ -211,22 +219,44 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean batchDeductStock(BatchStockDTO batchDTO) {
-        log.info("开始批量扣减库存, 订单号: {}, 商品数: {}", batchDTO.getOrderNo(), batchDTO.getItems().size());
-        for (StockDTO item : batchDTO.getItems()) {
+        List<StockDTO> items = batchDTO.getItems();
+        log.info("开始批量扣减库存, 订单号: {}, 商品数: {}", batchDTO.getOrderNo(), items.size());
+
+        Set<Long> productIds = items.stream().map(StockDTO::getProductId).collect(Collectors.toSet());
+        List<Product> products = productMapper.selectBatchIds(productIds);
+        Map<Long, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        for (StockDTO item : items) {
+            Product product = productMap.get(item.getProductId());
+            if (product == null) {
+                throw BusinessExceptionEnum.PRODUCT_NOT_FOUND
+                        .getException("商品 " + item.getProductId() + " 不存在");
+            }
+            if (product.getStock() < item.getQuantity()) {
+                log.warn("批量扣减库存失败(预检查), 订单号: {}, 商品ID: {}, 库存: {}, 需扣: {}",
+                        batchDTO.getOrderNo(), item.getProductId(), product.getStock(), item.getQuantity());
+                throw BusinessExceptionEnum.STOCK_NOT_ENOUGH
+                        .getException("商品 " + item.getProductId() + " 库存不足");
+            }
+        }
+
+        for (StockDTO item : items) {
             int rows = productMapper.update(null,
                     new LambdaUpdateWrapper<Product>()
                             .eq(Product::getId, item.getProductId())
                             .ge(Product::getStock, item.getQuantity())
                             .setSql("stock = stock - " + item.getQuantity()));
             if (rows == 0) {
-                log.warn("批量扣减库存失败, 订单号: {}, 商品ID: {}, 数量: {}",
-                        batchDTO.getOrderNo(), item.getProductId(), item.getQuantity());
+                log.warn("批量扣减库存失败(并发冲突), 订单号: {}, 商品ID: {}",
+                        batchDTO.getOrderNo(), item.getProductId());
                 throw BusinessExceptionEnum.STOCK_NOT_ENOUGH
-                        .getException("商品 " + item.getProductId() + " 库存不足");
+                        .getException("商品 " + item.getProductId() + " 库存不足，请重试");
             }
             log.debug("扣减库存成功, 商品ID: {}, 数量: {}", item.getProductId(), item.getQuantity());
         }
-        for (StockDTO item : batchDTO.getItems()) {
+
+        for (StockDTO item : items) {
             eventPublisher.publishEvent(new ProductChangedEvent(item.getProductId(), ChangeType.STOCK_CHANGED));
         }
         log.info("批量扣减库存完成, 订单号: {}", batchDTO.getOrderNo());
@@ -236,15 +266,18 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean batchRollbackStock(BatchStockDTO batchDTO) {
-        log.info("开始批量回滚库存, 订单号: {}, 商品数: {}", batchDTO.getOrderNo(), batchDTO.getItems().size());
-        for (StockDTO item : batchDTO.getItems()) {
+        List<StockDTO> items = batchDTO.getItems();
+        log.info("开始批量回滚库存, 订单号: {}, 商品数: {}", batchDTO.getOrderNo(), items.size());
+
+        for (StockDTO item : items) {
             productMapper.update(null,
                     new LambdaUpdateWrapper<Product>()
                             .eq(Product::getId, item.getProductId())
                             .setSql("stock = stock + " + item.getQuantity()));
             log.debug("回滚库存成功, 商品ID: {}, 数量: {}", item.getProductId(), item.getQuantity());
         }
-        for (StockDTO item : batchDTO.getItems()) {
+
+        for (StockDTO item : items) {
             eventPublisher.publishEvent(new ProductChangedEvent(item.getProductId(), ChangeType.STOCK_CHANGED));
         }
         log.info("批量回滚库存完成, 订单号: {}", batchDTO.getOrderNo());
@@ -256,12 +289,11 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toMap(ProductCategoryVO::getId, c -> c));
     }
 
-    private ProductVO convertToVO(Product product) {
+    private ProductVO convertToVO(Product product, Map<Long, ProductCategoryVO> categoryMap) {
         ProductVO vo = new ProductVO();
         vo.setId(product.getId());
         vo.setCategoryId(product.getCategoryId());
         if (product.getCategoryId() != null) {
-            Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
             ProductCategoryVO category = categoryMap.get(product.getCategoryId());
             if (category != null) {
                 vo.setCategoryName(category.getName());
@@ -277,12 +309,11 @@ public class ProductServiceImpl implements ProductService {
         return vo;
     }
 
-    private ProductDetailVO convertToDetailVO(Product product) {
+    private ProductDetailVO convertToDetailVO(Product product, Map<Long, ProductCategoryVO> categoryMap) {
         ProductDetailVO vo = new ProductDetailVO();
         vo.setId(product.getId());
         vo.setCategoryId(product.getCategoryId());
         if (product.getCategoryId() != null) {
-            Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
             ProductCategoryVO category = categoryMap.get(product.getCategoryId());
             if (category != null) {
                 vo.setCategoryName(category.getName());

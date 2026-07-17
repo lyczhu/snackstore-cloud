@@ -2,11 +2,13 @@ package com.lawyus.snackstore.product.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
-import com.lawyus.snackstore.product.mapper.ProductCategoryMapper;
+import com.lawyus.snackstore.product.repository.ProductCategoryMapper;
 import com.lawyus.snackstore.product.model.dto.ProductCategoryDTO;
 import com.lawyus.snackstore.product.model.entity.ProductCategory;
 import com.lawyus.snackstore.product.model.vo.ProductCategoryVO;
 import com.lawyus.snackstore.product.service.ProductCategoryService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +17,8 @@ import java.util.List;
 @Service
 public class ProductCategoryServiceImpl implements ProductCategoryService {
 
+    private static final String CACHE_NAME = "product:category";
+
     private final ProductCategoryMapper categoryMapper;
 
     public ProductCategoryServiceImpl(ProductCategoryMapper categoryMapper) {
@@ -22,6 +26,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
     }
 
     @Override
+    @Cacheable(value = CACHE_NAME, key = "'list'")
     public List<ProductCategoryVO> getCategoryList() {
         List<ProductCategory> categories = categoryMapper.selectList(
                 new LambdaQueryWrapper<ProductCategory>()
@@ -31,6 +36,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
     }
 
     @Override
+    @Cacheable(value = CACHE_NAME, key = "#id")
     public ProductCategoryVO getCategoryById(Long id) {
         ProductCategory category = categoryMapper.selectById(id);
         if (category == null) {
@@ -41,6 +47,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = CACHE_NAME, allEntries = true)
     public ProductCategoryVO createCategory(ProductCategoryDTO dto) {
         Long count = categoryMapper.selectCount(
                 new LambdaQueryWrapper<ProductCategory>().eq(ProductCategory::getName, dto.getName()));
@@ -57,6 +64,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = CACHE_NAME, allEntries = true)
     public ProductCategoryVO updateCategory(Long id, ProductCategoryDTO dto) {
         ProductCategory category = categoryMapper.selectById(id);
         if (category == null) {
@@ -77,6 +85,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @CacheEvict(value = CACHE_NAME, allEntries = true)
     public void deleteCategory(Long id) {
         ProductCategory category = categoryMapper.selectById(id);
         if (category == null) {
