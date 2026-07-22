@@ -1,6 +1,6 @@
 package com.lawyus.snackstore.user.domain.user.model.entity;
 
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.user.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.user.domain.common.entity.AggregateRoot;
 import com.lawyus.snackstore.user.domain.user.event.UserLoginEvent;
 import com.lawyus.snackstore.user.domain.user.event.UserRegisteredEvent;

@@ -1,6 +1,6 @@
 package com.lawyus.snackstore.user.domain.user.service;
 
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.user.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.user.domain.common.event.DomainEventPublisher;
 import com.lawyus.snackstore.user.domain.user.model.entity.User;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.Password;
@@ -26,8 +26,8 @@ public class UserAuthenticationDomainService {
         this.eventPublisher = eventPublisher;
     }
 
-    public User register(Phone phone, String rawPassword, String smsCode, String cachedSmsCode) {
-        validateSmsCode(smsCode, cachedSmsCode);
+    public User register(Phone phone, String rawPassword, String smsCode, String expectedCode) {
+        validateSmsCode(smsCode, expectedCode);
         checkPhoneNotExists(phone);
 
         Password password = Password.fromRaw(rawPassword, passwordEncoder);
@@ -42,7 +42,7 @@ public class UserAuthenticationDomainService {
 
     public User login(Phone phone, String rawPassword) {
         User user = userRepository.findByPhone(phone)
-                .orElseThrow(() -> BusinessExceptionEnum.USER_NOT_FOUND.getException());
+                .orElseThrow(BusinessExceptionEnum.USER_NOT_FOUND::getException);
 
         if (!user.isActive()) {
             throw BusinessExceptionEnum.USER_DISABLED.getException();
@@ -66,8 +66,8 @@ public class UserAuthenticationDomainService {
         return user;
     }
 
-    private void validateSmsCode(String inputCode, String cachedCode) {
-        if (cachedCode == null || !cachedCode.equals(inputCode)) {
+    private void validateSmsCode(String smsCode, String expectedCode) {
+        if (expectedCode == null || !expectedCode.equals(smsCode)) {
             throw BusinessExceptionEnum.SMS_CODE_ERROR.getException();
         }
     }

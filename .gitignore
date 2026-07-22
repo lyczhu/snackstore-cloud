@@ -57,3 +57,4 @@ application-prod.yml
 
 # Node (for frontend in same repo)
 node_modules/
+/.trae/

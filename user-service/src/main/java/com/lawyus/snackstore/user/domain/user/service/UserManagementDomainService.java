@@ -1,6 +1,6 @@
 package com.lawyus.snackstore.user.domain.user.service;
 
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.user.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.user.domain.common.model.PageSpecification;
 import com.lawyus.snackstore.user.domain.common.model.PagedResult;
 import com.lawyus.snackstore.user.domain.user.model.entity.User;
@@ -21,7 +21,7 @@ public class UserManagementDomainService {
 
     public User getUserById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> BusinessExceptionEnum.USER_NOT_FOUND.getException());
+                .orElseThrow(BusinessExceptionEnum.USER_NOT_FOUND::getException);
     }
 
     public User updateUser(Long id, String nickname, String avatar, Phone phone) {
@@ -42,5 +42,9 @@ public class UserManagementDomainService {
 
     public PagedResult<User> getUserList(int pageNum, int pageSize) {
         return userRepository.findAll(PageSpecification.of(pageNum, pageSize));
+    }
+
+    public long count() {
+        return userRepository.count();
     }
 }

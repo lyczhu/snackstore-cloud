@@ -3,7 +3,6 @@ package com.lawyus.snackstore.order.service;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.order.model.dto.OrderCreateDTO;
 import com.lawyus.snackstore.order.model.dto.OrderQueryDTO;
-import com.lawyus.snackstore.order.model.vo.DashboardVO;
 import com.lawyus.snackstore.order.model.vo.OrderVO;
 
 public interface OrderService {
@@ -19,6 +18,4 @@ public interface OrderService {
     void cancelOrder(Long id, Long userId);
 
     void deleteOrder(Long id, Long userId);
-
-    DashboardVO getDashboard();
 }

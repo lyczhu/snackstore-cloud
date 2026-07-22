@@ -21,5 +21,7 @@ public interface UserApplicationService {
 
     PageResult<UserViewVO> getUserList(Integer pageNum, Integer pageSize);
 
+    long countUsers();
+
     void updateUserStatus(Long id, Integer status);
 }

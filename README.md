@@ -4,14 +4,14 @@
 
 ## 技术栈
 
-| 技术 | 版本 |
-|------|------|
-| Java | 25 |
-| Spring Boot | 3.5.13 |
-| Spring Cloud | 2025.0.2 |
+| 技术 | 版本         |
+|------|------------|
+| Java | 25         |
+| Spring Boot | 3.5.15     |
+| Spring Cloud | 2025.0.2   |
 | Spring Cloud Alibaba | 2025.0.0.0 |
-| MyBatis-Plus | 3.5.15 |
-| JWT | 0.12.6 |
+| MyBatis-Plus | 3.5.15     |
+| JWT | 0.12.6     |
 
 ## 模块架构
 

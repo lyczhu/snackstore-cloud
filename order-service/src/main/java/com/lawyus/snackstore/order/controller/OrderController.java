@@ -1,14 +1,23 @@
 package com.lawyus.snackstore.order.controller;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.order.model.dto.OrderCreateDTO;
 import com.lawyus.snackstore.order.model.dto.OrderQueryDTO;
-import com.lawyus.snackstore.order.model.vo.DashboardVO;
 import com.lawyus.snackstore.order.model.vo.OrderVO;
 import com.lawyus.snackstore.order.service.OrderService;
+
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/order")
@@ -56,10 +65,5 @@ public class OrderController {
                                     @RequestHeader("X-User-Id") Long userId) {
         orderService.deleteOrder(id, userId);
         return Result.success(null);
-    }
-
-    @GetMapping("/dashboard")
-    public Result<DashboardVO> getDashboard() {
-        return Result.success(orderService.getDashboard());
     }
 }

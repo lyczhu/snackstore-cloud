@@ -5,7 +5,7 @@ import com.lawyus.snackstore.user.domain.address.model.valueobject.AddressDetail
 import com.lawyus.snackstore.user.domain.address.model.valueobject.ReceiverInfo;
 import com.lawyus.snackstore.user.domain.address.repository.AddressRepository;
 import com.lawyus.snackstore.user.domain.common.event.DomainEventPublisher;
-import com.lawyus.snackstore.common.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.user.exception.BusinessExceptionEnum;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;

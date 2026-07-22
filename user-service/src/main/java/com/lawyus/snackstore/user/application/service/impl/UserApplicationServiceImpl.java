@@ -98,6 +98,11 @@ public class UserApplicationServiceImpl implements UserApplicationService {
     }
 
     @Override
+    public long countUsers() {
+        return userManagementDomainService.count();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void updateUserStatus(Long id, Integer status) {
         UserStatus userStatus = UserStatus.fromCode(status);

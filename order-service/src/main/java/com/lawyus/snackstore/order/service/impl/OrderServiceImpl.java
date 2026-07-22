@@ -16,7 +16,6 @@ import com.lawyus.snackstore.order.model.dto.OrderCreateDTO;
 import com.lawyus.snackstore.order.model.dto.OrderQueryDTO;
 import com.lawyus.snackstore.order.model.entity.Order;
 import com.lawyus.snackstore.order.model.entity.OrderItem;
-import com.lawyus.snackstore.order.model.vo.DashboardVO;
 import com.lawyus.snackstore.order.model.vo.OrderVO;
 import com.lawyus.snackstore.order.service.OrderService;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +91,9 @@ public class OrderServiceImpl implements OrderService {
             if (pVO.getStatus() == null || pVO.getStatus() == 0) {
                 throw BusinessExceptionEnum.PRODUCT_OFF_SHELF.getException();
             }
+        }
+        if (productVOList.size() != orderItems.size()) {
+            throw BusinessExceptionEnum.ORDER_CREATE_FAILED.getException("商品数量不匹配");
         }
 
         BatchStockDTO batchDTO = new BatchStockDTO();
@@ -219,18 +221,6 @@ public class OrderServiceImpl implements OrderService {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }
         orderMapper.deleteById(id);
-    }
-
-    @Override
-    public DashboardVO getDashboard() {
-        DashboardVO vo = new DashboardVO();
-        Long orderCount = orderMapper.selectCount(null);
-        Long todayOrderCount = orderMapper.countTodayOrders();
-        vo.setOrderCount(orderCount);
-        vo.setTodayOrderCount(todayOrderCount);
-        vo.setProductCount(0L);
-        vo.setUserCount(0L);
-        return vo;
     }
 
     private String generateOrderNo() {
