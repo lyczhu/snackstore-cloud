@@ -13,10 +13,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "product-service")
 public interface ProductDataClient {
 
-    @PostMapping("/product/internal/searchFallback")
+    @PostMapping("/internal/products/search/fallback")
     PageResult<ProductSearchSyncMessage> searchFallback(@RequestBody @Valid ProductSearchDTO dto);
 
-    @GetMapping("/product/internal/listForSearch")
-    PageResult<ProductSearchSyncMessage> listForSearch(@RequestParam("pageNum") int pageNum,
+    @GetMapping("/internal/products")
+    PageResult<ProductSearchSyncMessage> listForSearch(@RequestParam(value = "purpose", required = false) String purpose,
+                                                       @RequestParam("pageNum") int pageNum,
                                                        @RequestParam("pageSize") int pageSize);
 }

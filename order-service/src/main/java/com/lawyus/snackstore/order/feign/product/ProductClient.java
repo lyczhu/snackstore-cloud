@@ -13,21 +13,21 @@ import java.util.List;
 @FeignClient(name = "product-service", fallbackFactory = ProductClientFallbackFactory.class)
 public interface ProductClient {
 
-    @GetMapping("/product/{id}")
+    @GetMapping("/products/{id}")
     Result<ProductFeignDetailVO> getProductDetail(@PathVariable("id") Long id);
 
-    @GetMapping("product/listByIds")
-    Result<List<ProductVO>> getProductsByIds(List<Long> idList);
+    @GetMapping("/products/")
+    Result<List<ProductVO>> getProductsByIds(@RequestParam("ids") List<Long> ids);
 
-    @PostMapping("/product/deductStock")
-    Result<Boolean> deductStock(@RequestParam("productId") Long productId, @RequestParam("quantity") Integer quantity);
+    @PostMapping("/products/{id}/stock/deductions")
+    Result<Boolean> deductStock(@PathVariable("id") Long productId, @RequestParam("quantity") Integer quantity);
 
-    @PostMapping("/product/rollbackStock")
-    Result<Boolean> rollbackStock(@RequestParam("productId") Long productId, @RequestParam("quantity") Integer quantity);
+    @PostMapping("/products/{id}/stock/rollbacks")
+    Result<Boolean> rollbackStock(@PathVariable("id") Long productId, @RequestParam("quantity") Integer quantity);
 
-    @PostMapping("/product/batchDeductStock")
+    @PostMapping("/products/stock/batch-deductions")
     Result<Boolean> batchDeductStock(@RequestBody BatchStockDTO batchDTO);
 
-    @PostMapping("/product/batchRollbackStock")
+    @PostMapping("/products/stock/batch-rollbacks")
     Result<Boolean> batchRollbackStock(@RequestBody BatchStockDTO batchDTO);
 }

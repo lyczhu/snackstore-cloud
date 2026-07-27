@@ -20,7 +20,7 @@ import com.lawyus.snackstore.product.model.vo.ProductCategoryVO;
 import com.lawyus.snackstore.product.service.ProductInternalService;
 
 @RestController
-@RequestMapping("/product/internal")
+@RequestMapping("/internal/products")
 public class ProductInternalController {
 
     private final ProductInternalService productInternalService;
@@ -29,12 +29,12 @@ public class ProductInternalController {
         this.productInternalService = productInternalService;
     }
 
-    @PostMapping("/searchFallback")
+    @PostMapping("/search/fallback")
     public PageResult<ProductSearchSyncMessage> searchFallback(@RequestBody @Valid ProductSearchDTO dto) {
         return productInternalService.searchFallback(dto);
     }
 
-    @GetMapping("/listForSearch")
+    @GetMapping
     public PageResult<ProductSearchSyncMessage> listForSearch(@RequestParam int pageNum,
                                                               @RequestParam int pageSize) {
         return productInternalService.listForSearch(pageNum, pageSize);
@@ -45,7 +45,7 @@ public class ProductInternalController {
         return Result.success(productInternalService.countProducts());
     }
 
-    @GetMapping("/categoryMap")
+    @GetMapping("/category-map")
     public Result<Map<Long, Long>> getProductCategoryMap() {
         return Result.success(productInternalService.getProductCategoryMap());
     }

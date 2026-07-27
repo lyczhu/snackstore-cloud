@@ -13,13 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.lawyus.snackstore.common.dto.ProductSearchDTO;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
-import com.lawyus.snackstore.product.repository.ProductMapper;
 import com.lawyus.snackstore.product.model.dto.BatchStockDTO;
 import com.lawyus.snackstore.product.model.dto.ProductDTO;
 import com.lawyus.snackstore.product.model.dto.ProductQueryDTO;
-import com.lawyus.snackstore.common.dto.ProductSearchDTO;
 import com.lawyus.snackstore.product.model.dto.StockDTO;
 import com.lawyus.snackstore.product.model.entity.Product;
 import com.lawyus.snackstore.product.model.event.ProductChangedEvent;
@@ -27,6 +26,7 @@ import com.lawyus.snackstore.product.model.event.ProductChangedEvent.ChangeType;
 import com.lawyus.snackstore.product.model.vo.ProductCategoryVO;
 import com.lawyus.snackstore.product.model.vo.ProductDetailVO;
 import com.lawyus.snackstore.product.model.vo.ProductVO;
+import com.lawyus.snackstore.product.repository.ProductMapper;
 import com.lawyus.snackstore.product.service.ProductCategoryService;
 import com.lawyus.snackstore.product.service.ProductService;
 import com.lawyus.snackstore.product.service.ProductSnapshotService;
@@ -223,7 +223,7 @@ public class ProductServiceImpl implements ProductService {
         log.info("开始批量扣减库存, 订单号: {}, 商品数: {}", batchDTO.getOrderNo(), items.size());
 
         Set<Long> productIds = items.stream().map(StockDTO::getProductId).collect(Collectors.toSet());
-        List<Product> products = productMapper.selectBatchIds(productIds);
+        List<Product> products = productMapper.selectByIds(productIds);
         Map<Long, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
 

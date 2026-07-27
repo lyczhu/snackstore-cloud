@@ -1,14 +1,6 @@
 package com.lawyus.snackstore.order.controller;
 
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
@@ -20,7 +12,7 @@ import com.lawyus.snackstore.order.service.OrderService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/order")
+@RequestMapping("/orders")
 public class OrderController {
 
     private final OrderService orderService;
@@ -41,22 +33,23 @@ public class OrderController {
         return Result.success(orderService.getOrderDetail(id, userId));
     }
 
-    @GetMapping("/list")
+    @GetMapping
     public Result<PageResult<OrderVO>> getOrderList(OrderQueryDTO queryDTO) {
         return Result.success(orderService.getOrderList(queryDTO));
     }
 
-    @PutMapping("/{id}/pay")
-    public Result<Void> payOrder(@PathVariable Long id,
-                                 @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        orderService.payOrder(id, userId);
-        return Result.success(null);
-    }
-
-    @PutMapping("/{id}/cancel")
-    public Result<Void> cancelOrder(@PathVariable Long id,
-                                    @RequestHeader("X-User-Id") Long userId) {
-        orderService.cancelOrder(id, userId);
+    @PatchMapping("/{id}/status")
+    public Result<Void> updateOrderStatus(@PathVariable Long id,
+                                         @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                         @RequestParam Integer status) {
+        // status: 1=已支付(COMPLETED) 2=已取消(CANCELLED)
+        if (status != null && status == 1) {
+            orderService.payOrder(id, userId);
+        } else if (status != null && status == 2) {
+            orderService.cancelOrder(id, userId);
+        } else {
+            throw new IllegalArgumentException("不支持的订单状态值: " + status);
+        }
         return Result.success(null);
     }
 

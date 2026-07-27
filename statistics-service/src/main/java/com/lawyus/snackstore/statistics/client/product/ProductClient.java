@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 @FeignClient(name = "product-service", fallbackFactory = ProductClientFallbackFactory.class)
 public interface ProductClient {
 
-    @GetMapping("/product/internal/count")
+    @GetMapping("/internal/products/count")
     Result<Long> countProducts();
 
-    @GetMapping("/product/internal/categoryMap")
+    @GetMapping("/internal/products/category-map")
     Result<Map<Long, Long>> getProductCategoryMap();
 
-    @GetMapping("/product/internal/categories")
+    @GetMapping("/internal/products/categories")
     Result<List<ProductCategoryVO>> getCategories();
 }

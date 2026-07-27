@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/product/category")
+@RequestMapping("/products/categories")
 public class ProductCategoryController {
 
     private final ProductCategoryService categoryService;
@@ -19,7 +19,7 @@ public class ProductCategoryController {
         this.categoryService = categoryService;
     }
 
-    @GetMapping("/list")
+    @GetMapping
     public Result<List<ProductCategoryVO>> getCategoryList() {
         return Result.success(categoryService.getCategoryList());
     }

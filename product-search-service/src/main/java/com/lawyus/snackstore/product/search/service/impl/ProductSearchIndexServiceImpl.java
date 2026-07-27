@@ -1,31 +1,24 @@
 package com.lawyus.snackstore.product.search.service.impl;
 
-import java.math.BigDecimal;
-
+import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
+import com.lawyus.snackstore.product.search.model.document.ProductSearchDocument;
+import com.lawyus.snackstore.product.search.repository.ProductSearchRepository;
+import com.lawyus.snackstore.product.search.service.ProductSearchIndexService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
-import com.lawyus.snackstore.common.response.PageResult;
-import com.lawyus.snackstore.product.search.client.ProductDataClient;
-import com.lawyus.snackstore.product.search.model.document.ProductSearchDocument;
-import com.lawyus.snackstore.product.search.repository.ProductSearchRepository;
-import com.lawyus.snackstore.product.search.service.ProductSearchIndexService;
+import java.math.BigDecimal;
 
 @Service
 public class ProductSearchIndexServiceImpl implements ProductSearchIndexService {
 
     private static final Logger log = LoggerFactory.getLogger(ProductSearchIndexServiceImpl.class);
-    private static final int REBUILD_PAGE_SIZE = 1000;
 
     private final ProductSearchRepository productSearchRepository;
-    private final ProductDataClient productDataClient;
 
-    public ProductSearchIndexServiceImpl(ProductSearchRepository productSearchRepository,
-                                         ProductDataClient productDataClient) {
+    public ProductSearchIndexServiceImpl(ProductSearchRepository productSearchRepository) {
         this.productSearchRepository = productSearchRepository;
-        this.productDataClient = productDataClient;
     }
 
     @Override

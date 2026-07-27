@@ -1,0 +1,35 @@
+package com.lawyus.snackstore.user.presentation.controller;
+
+import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.user.application.dto.UserRegisterCommand;
+import com.lawyus.snackstore.user.application.dto.UserLoginCommand;
+import com.lawyus.snackstore.user.application.service.UserApplicationService;
+import com.lawyus.snackstore.user.application.vo.LoginViewVO;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/auth")
+public class AuthController {
+
+    private final UserApplicationService userApplicationService;
+
+    public AuthController(UserApplicationService userApplicationService) {
+        this.userApplicationService = userApplicationService;
+    }
+
+    @PostMapping("/register")
+    public Result<LoginViewVO> register(@Valid @RequestBody UserRegisterCommand command) {
+        return Result.success(userApplicationService.register(command));
+    }
+
+    @PostMapping("/login")
+    public Result<LoginViewVO> login(@Valid @RequestBody UserLoginCommand command) {
+        return Result.success(userApplicationService.login(command));
+    }
+
+    @PostMapping("/admin/login")
+    public Result<LoginViewVO> adminLogin(@Valid @RequestBody UserLoginCommand command) {
+        return Result.success(userApplicationService.adminLogin(command));
+    }
+}

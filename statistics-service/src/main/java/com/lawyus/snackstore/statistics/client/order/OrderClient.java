@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(name = "order-service", fallbackFactory = OrderClientFallbackFactory.class)
 public interface OrderClient {
 
-    @GetMapping("/order/internal/statistics")
+    @GetMapping("/internal/orders/statistics")
     Result<OrderStatisticsVO> getOrderStatistics();
 
-    @GetMapping("/order/internal/trend")
+    @GetMapping("/internal/orders/trend")
     Result<List<TrendVO>> getOrderTrend(@RequestParam("days") int days);
 
-    @GetMapping("/order/internal/top/products")
+    @GetMapping("/internal/orders/top/products")
     Result<List<ProductSalesVO>> getProductSalesTop(@RequestParam("limit") int limit);
 }

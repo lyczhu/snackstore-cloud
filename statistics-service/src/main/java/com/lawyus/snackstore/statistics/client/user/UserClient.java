@@ -7,6 +7,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 @FeignClient(name = "user-service", fallbackFactory = UserClientFallbackFactory.class)
 public interface UserClient {
 
-    @GetMapping("/user/internal/count")
+    @GetMapping("/internal/users/count")
     Result<Long> countUsers();
 }

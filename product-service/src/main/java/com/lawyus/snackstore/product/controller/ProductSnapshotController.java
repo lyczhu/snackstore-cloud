@@ -14,7 +14,7 @@ import com.lawyus.snackstore.product.service.ProductSnapshotService;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/product/snapshot")
+@RequestMapping("/products/snapshots")
 public class ProductSnapshotController {
 
     private final ProductSnapshotService snapshotService;
@@ -28,7 +28,7 @@ public class ProductSnapshotController {
         return Result.success(snapshotService.getSnapshotById(id));
     }
 
-    @GetMapping("/list")
+    @GetMapping
     public Result<PageResult<ProductSnapshotVO>> getSnapshotList(@Valid ProductSnapshotQueryDTO queryDTO) {
         return Result.success(snapshotService.getSnapshotList(queryDTO));
     }

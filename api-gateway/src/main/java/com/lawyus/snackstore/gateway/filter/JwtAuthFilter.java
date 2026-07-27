@@ -42,17 +42,18 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final String HEADER_USERNAME = "X-Username";
     private static final String HEADER_USER_ROLE = "X-User-Role";
 
+    // 白名单条目格式为 "HTTP方法:ANT路径"，仅当方法与路径同时匹配时放行
     private static final Set<String> WHITE_LIST = Set.of(
-            "/api/user/login",
-            "/api/user/register",
-            "/api/user/admin/login",
-            "/api/product/list",
-            "/api/product/category/**"
+            "POST:/api/auth/register",
+            "POST:/api/auth/login",
+            "POST:/api/auth/admin/login",
+            "GET:/api/products",
+            "GET:/api/products/categories/**"
     );
 
     private static final Map<String, String> ADMIN_PATH_PATTERNS = Map.of(
             "/api/admin/**", "admin",
-            "/api/user/admin/**", "admin"
+            "/api/auth/admin/**", "admin"
     );
 
     @Value("${jwt.secret}")
@@ -63,7 +64,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        if (isWhiteListed(path)) {
+        if (isWhiteListed(path, request.getMethod().name())) {
             return chain.filter(exchange);
         }
 
@@ -107,8 +108,16 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         return -1;
     }
 
-    private boolean isWhiteListed(String path) {
-        return WHITE_LIST.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
+    private boolean isWhiteListed(String path, String method) {
+        return WHITE_LIST.stream().anyMatch(entry -> {
+            int idx = entry.indexOf(':');
+            if (idx < 0) {
+                return PATH_MATCHER.match(entry, path);
+            }
+            String m = entry.substring(0, idx);
+            String p = entry.substring(idx + 1);
+            return m.equals(method) && PATH_MATCHER.match(p, path);
+        });
     }
 
     private boolean requiresAdmin(String path) {

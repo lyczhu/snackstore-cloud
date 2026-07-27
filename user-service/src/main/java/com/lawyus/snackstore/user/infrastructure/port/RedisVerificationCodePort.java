@@ -4,8 +4,6 @@ import com.lawyus.snackstore.user.domain.user.port.VerificationCodePort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.TimeUnit;
-
 @Component
 public class RedisVerificationCodePort implements VerificationCodePort {
 

@@ -11,47 +11,68 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/user/address")
+@RequestMapping("/users/{userId}/addresses")
 public class AddressController {
-    
+
     private final AddressApplicationService addressApplicationService;
-    
+
     public AddressController(AddressApplicationService addressApplicationService) {
         this.addressApplicationService = addressApplicationService;
     }
-    
-    @GetMapping("/list")
-    public Result<List<AddressViewVO>> getAddressList(@RequestHeader("X-User-Id") Long userId) {
+
+    @GetMapping
+    public Result<List<AddressViewVO>> getAddressList(@PathVariable("userId") Long userId,
+                                                      @RequestHeader(value = "X-User-Id", required = false) Long authUserId) {
+        assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.getAddressList(userId));
     }
-    
+
     @GetMapping("/{id}")
-    public Result<AddressViewVO> getAddressById(@PathVariable Long id, @RequestHeader("X-User-Id") Long userId) {
+    public Result<AddressViewVO> getAddressById(@PathVariable("userId") Long userId,
+                                                 @PathVariable Long id,
+                                                 @RequestHeader(value = "X-User-Id", required = false) Long authUserId) {
+        assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.getAddressById(id, userId));
     }
-    
+
     @PostMapping
-    public Result<AddressViewVO> createAddress(@RequestHeader("X-User-Id") Long userId,
-                                               @Valid @RequestBody AddressCreateCommand command) {
+    public Result<AddressViewVO> createAddress(@PathVariable("userId") Long userId,
+                                                @RequestHeader(value = "X-User-Id", required = false) Long authUserId,
+                                                @Valid @RequestBody AddressCreateCommand command) {
+        assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.createAddress(userId, command));
     }
-    
+
     @PutMapping("/{id}")
-    public Result<AddressViewVO> updateAddress(@PathVariable Long id,
-                                               @RequestHeader("X-User-Id") Long userId,
-                                               @Valid @RequestBody AddressUpdateCommand command) {
+    public Result<AddressViewVO> updateAddress(@PathVariable("userId") Long userId,
+                                                @PathVariable Long id,
+                                                @RequestHeader(value = "X-User-Id", required = false) Long authUserId,
+                                                @Valid @RequestBody AddressUpdateCommand command) {
+        assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.updateAddress(id, userId, command));
     }
-    
+
     @DeleteMapping("/{id}")
-    public Result<Void> deleteAddress(@PathVariable Long id, @RequestHeader("X-User-Id") Long userId) {
+    public Result<Void> deleteAddress(@PathVariable("userId") Long userId,
+                                      @PathVariable Long id,
+                                      @RequestHeader(value = "X-User-Id", required = false) Long authUserId) {
+        assertOwner(userId, authUserId);
         addressApplicationService.deleteAddress(id, userId);
         return Result.success(null);
     }
-    
-    @PutMapping("/{id}/default")
-    public Result<Void> setDefaultAddress(@PathVariable Long id, @RequestHeader("X-User-Id") Long userId) {
+
+    @PatchMapping("/{id}/default")
+    public Result<Void> setDefaultAddress(@PathVariable("userId") Long userId,
+                                          @PathVariable Long id,
+                                          @RequestHeader(value = "X-User-Id", required = false) Long authUserId) {
+        assertOwner(userId, authUserId);
         addressApplicationService.setDefaultAddress(id, userId);
         return Result.success(null);
+    }
+
+    private void assertOwner(Long userId, Long authUserId) {
+        if (authUserId != null && !authUserId.equals(userId)) {
+            throw new SecurityException("无权访问其他用户的地址");
+        }
     }
 }

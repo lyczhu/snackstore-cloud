@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/order/internal")
+@RequestMapping("/internal/orders")
 public class OrderInternalController {
 
     private final OrderInternalService orderInternalService;

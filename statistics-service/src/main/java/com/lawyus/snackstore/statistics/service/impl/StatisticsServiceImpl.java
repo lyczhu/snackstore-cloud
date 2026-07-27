@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -24,7 +25,9 @@ import com.lawyus.snackstore.statistics.model.vo.DashboardVO;
 import com.lawyus.snackstore.statistics.model.vo.ProductSalesVO;
 import com.lawyus.snackstore.statistics.model.vo.TrendVO;
 import com.lawyus.snackstore.statistics.service.StatisticsService;
+
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -84,7 +87,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             return vo;
         } catch (BusinessException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("聚合 dashboard 数据失败", e);
             throw BusinessExceptionEnum.STATISTICS_SERVICE_ERROR.getException("统计服务暂不可用，请稍后重试");
         }
@@ -141,9 +144,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             List<CategorySalesVO> topCategories = aggregateCategorySales(productSales, productCategoryMap, categories, limit);
             statisticsCacheService.put(key, topCategories, StatisticsCacheConstants.TOP_CACHE_TTL_SECONDS);
             return topCategories;
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
+        } catch (InterruptedException | ExecutionException e) {
             log.error("聚合分类销量数据失败", e);
             throw BusinessExceptionEnum.STATISTICS_SERVICE_ERROR.getException("统计服务暂不可用，请稍后重试");
         }
@@ -179,7 +180,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 })
                 .sorted(Comparator.comparing(CategorySalesVO::getQuantity).reversed())
                 .limit(limit)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private <T> T extractData(Result<T> result, String serviceName) {
