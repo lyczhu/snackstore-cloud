@@ -31,3 +31,8 @@ logging:
     com.lawyus.snackstore.product.search: info
     org.springframework.kafka: info
     co.elastic.clients: warn
+
+product-search:
+  rebuild:
+    cron: 0 0 3 * * *
+    page-size: 100

@@ -6,6 +6,7 @@ import com.lawyus.snackstore.product.model.entity.ProductCategory;
 import com.lawyus.snackstore.product.model.event.ProductChangedEvent;
 import com.lawyus.snackstore.product.repository.ProductCategoryMapper;
 import com.lawyus.snackstore.product.repository.ProductMapper;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class ProductChangedListener {
@@ -22,9 +27,16 @@ public class ProductChangedListener {
     private final ProductMapper productMapper;
     private final ProductCategoryMapper categoryMapper;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ScheduledExecutorService retryExecutor;
 
     @Value("${spring.kafka.topic.product-changed:product-changed}")
     private String productChangedTopic;
+
+    @Value("${product.kafka.producer.retry.max-attempts:5}")
+    private int maxAttempts;
+
+    @Value("${product.kafka.producer.retry.backoff-ms:2000}")
+    private long backoffMs;
 
     public ProductChangedListener(ProductMapper productMapper,
                                   ProductCategoryMapper categoryMapper,
@@ -32,6 +44,16 @@ public class ProductChangedListener {
         this.productMapper = productMapper;
         this.categoryMapper = categoryMapper;
         this.kafkaTemplate = kafkaTemplate;
+        this.retryExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "product-changed-send-retry");
+            thread.setDaemon(true);
+            return thread;
+        });
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        retryExecutor.shutdownNow();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -59,20 +81,41 @@ public class ProductChangedListener {
             }
 
             String key = "product-" + productId;
+            sendWithRetry(key, message, maxAttempts);
+        } catch (Exception e) {
+            log.error("处理商品变更事件异常: productId={}, type={}", productId, changeType, e);
+        }
+    }
+
+    private void sendWithRetry(String key, ProductSearchSyncMessage message, int remainingAttempts) {
+        try {
             kafkaTemplate.send(productChangedTopic, key, message)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
-                            log.error("Kafka消息发送失败: productId={}, eventId={}", productId, message.getEventId(), ex);
+                            handleSendFailure(key, message, remainingAttempts, ex);
                         } else {
                             log.debug("Kafka消息发送成功: productId={}, eventId={}, partition={}, offset={}",
-                                    productId, message.getEventId(),
+                                    message.getId(), message.getEventId(),
                                     result.getRecordMetadata().partition(),
                                     result.getRecordMetadata().offset());
                         }
                     });
         } catch (Exception e) {
-            log.error("处理商品变更事件异常: productId={}, type={}", productId, changeType, e);
+            handleSendFailure(key, message, remainingAttempts, e);
         }
+    }
+
+    private void handleSendFailure(String key, ProductSearchSyncMessage message, int remainingAttempts, Throwable ex) {
+        Long productId = message.getId();
+        if (remainingAttempts <= 1) {
+            log.error("Kafka消息发送最终失败，等待ES定时全量重建补偿: productId={}, eventId={}",
+                    productId, message.getEventId(), ex);
+            return;
+        }
+        log.warn("Kafka消息发送失败，{}ms后重试: productId={}, eventId={}, 剩余重试次数={}",
+                backoffMs, productId, message.getEventId(), remainingAttempts - 1, ex);
+        retryExecutor.schedule(() -> sendWithRetry(key, message, remainingAttempts - 1),
+                backoffMs, TimeUnit.MILLISECONDS);
     }
 
     private ProductSearchSyncMessage buildDeleteMessage(Long productId) {

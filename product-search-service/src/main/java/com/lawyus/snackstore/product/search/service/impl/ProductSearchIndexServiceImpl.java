@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 public class ProductSearchIndexServiceImpl implements ProductSearchIndexService {
@@ -28,6 +29,22 @@ public class ProductSearchIndexServiceImpl implements ProductSearchIndexService 
         }
         productSearchRepository.save(buildDocument(message));
         log.debug("ES索引已保存: productId={}", message.getId());
+    }
+
+    @Override
+    public void saveAll(List<ProductSearchSyncMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+        List<ProductSearchDocument> documents = messages.stream()
+                .filter(m -> m != null && m.getId() != null)
+                .map(this::buildDocument)
+                .toList();
+        if (documents.isEmpty()) {
+            return;
+        }
+        productSearchRepository.saveAll(documents);
+        log.debug("ES索引批量保存: {}条", documents.size());
     }
 
     @Override
