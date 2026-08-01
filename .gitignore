@@ -48,13 +48,16 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Application
-*.yml
-!src/main/resources/application*.yml
-application-local.yml
-application-dev.yml
-application-prod.yml
-
 # Node (for frontend in same repo)
 node_modules/
+
+# Trae
 /.trae/
+
+# Workbuddy
+.workbuddy/
+.codebuddy/
+CODEBUDDY.md
+
+# agent
+AGENTS.md

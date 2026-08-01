@@ -88,7 +88,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductVO> getProductListByIds(List<Long> idList) {
-        List<Product> products = productMapper.selectBatchIds(idList);
+        List<Product> products = productMapper.selectByIds(idList);
         Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
         return products.stream().map(p -> convertToVO(p, categoryMap)).toList();
     }
