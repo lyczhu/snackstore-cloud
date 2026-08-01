@@ -3,6 +3,7 @@ package com.lawyus.snackstore.order.service.impl;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lawyus.snackstore.order.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.common.response.PageResult;
@@ -25,11 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,8 +53,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderVO createOrder(Long userId, OrderCreateDTO orderDto) {
-        String orderNo = generateOrderNo();
-        List<OrderItem> itemList = handleOrderItems(orderDto.getItems(), orderNo);
+        String orderNo = IdWorker.getIdStr();
+        List<OrderItem> itemList = buildOrderItems(orderDto.getItems());
 
         BigDecimal totalAmount = itemList.stream()
                 .map(item -> item.getProductPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
@@ -73,10 +72,16 @@ public class OrderServiceImpl implements OrderService {
         itemList.forEach(item -> item.setOrderId(order.getId()));
         orderItemMapper.insert(itemList);
 
+        Result<Boolean> stockResult = productClient.batchDeductStock(buildStockDTO(orderNo, itemList));
+        if (stockResult == null || stockResult.getData() == null || !stockResult.getData()) {
+            log.error("批量扣减库存失败, 订单号: {}", orderNo);
+            throw BusinessExceptionEnum.STOCK_NOT_ENOUGH.getException();
+        }
+
         return convertToVO(order);
     }
 
-    private List<OrderItem> handleOrderItems(List<OrderCreateDTO.OrderItemDTO> orderItems, String orderNo) {
+    private List<OrderItem> buildOrderItems(List<OrderCreateDTO.OrderItemDTO> orderItems) {
         List<Long> productIdList = orderItems.stream()
                 .map(OrderCreateDTO.OrderItemDTO::getProductId).toList();
         Map<Long, Integer> productMap = orderItems.stream()
@@ -98,22 +103,6 @@ public class OrderServiceImpl implements OrderService {
             throw BusinessExceptionEnum.ORDER_CREATE_FAILED.getException("商品数量不匹配");
         }
 
-        BatchStockDTO batchDTO = new BatchStockDTO();
-        batchDTO.setOrderNo(orderNo);
-        List<BatchStockDTO.StockItemDTO> stockItems = orderItems.stream().map(item -> {
-            BatchStockDTO.StockItemDTO stockItem = new BatchStockDTO.StockItemDTO();
-            stockItem.setProductId(item.getProductId());
-            stockItem.setQuantity(item.getQuantity());
-            return stockItem;
-        }).toList();
-        batchDTO.setItems(stockItems);
-
-        Result<Boolean> stockResult = productClient.batchDeductStock(batchDTO);
-        if (stockResult == null || stockResult.getData() == null || !stockResult.getData()) {
-            log.error("批量扣减库存失败, 订单号: {}", orderNo);
-            throw BusinessExceptionEnum.STOCK_NOT_ENOUGH.getException();
-        }
-
         List<OrderItem> itemList = new ArrayList<>();
         for (ProductVO pVO : productVOList) {
             Integer quantity = productMap.get(pVO.getId());
@@ -126,6 +115,19 @@ public class OrderServiceImpl implements OrderService {
             itemList.add(orderItem);
         }
         return itemList;
+    }
+
+    private BatchStockDTO buildStockDTO(String orderNo, List<OrderItem> items) {
+        BatchStockDTO batchDTO = new BatchStockDTO();
+        batchDTO.setOrderNo(orderNo);
+        List<BatchStockDTO.StockItemDTO> stockItems = items.stream().map(item -> {
+            BatchStockDTO.StockItemDTO stockItem = new BatchStockDTO.StockItemDTO();
+            stockItem.setProductId(item.getProductId());
+            stockItem.setQuantity(item.getQuantity());
+            return stockItem;
+        }).toList();
+        batchDTO.setItems(stockItems);
+        return batchDTO;
     }
 
     @Override
@@ -204,17 +206,7 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> items = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, id));
 
-        BatchStockDTO batchDTO = new BatchStockDTO();
-        batchDTO.setOrderNo(order.getOrderNo());
-        List<BatchStockDTO.StockItemDTO> stockItems = items.stream().map(item -> {
-            BatchStockDTO.StockItemDTO stockItem = new BatchStockDTO.StockItemDTO();
-            stockItem.setProductId(item.getProductId());
-            stockItem.setQuantity(item.getQuantity());
-            return stockItem;
-        }).toList();
-        batchDTO.setItems(stockItems);
-
-        Result<Boolean> stockResult = productClient.batchRollbackStock(batchDTO);
+        Result<Boolean> stockResult = productClient.batchRollbackStock(buildStockDTO(order.getOrderNo(), items));
         if (stockResult == null || stockResult.getData() == null || !stockResult.getData()) {
             log.error("取消订单回滚库存失败，事务回滚: orderId={}", id);
             throw BusinessExceptionEnum.ORDER_CANCEL_FAILED.getException("库存回滚失败，请稍后重试");
@@ -232,12 +224,6 @@ public class OrderServiceImpl implements OrderService {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }
         orderMapper.deleteById(id);
-    }
-
-    private String generateOrderNo() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        int random = ThreadLocalRandom.current().nextInt(1000, 9999);
-        return timestamp + random;
     }
 
     private OrderVO convertToVO(Order order) {
