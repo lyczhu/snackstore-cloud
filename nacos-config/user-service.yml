@@ -38,6 +38,12 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
+user:
+  sms:
+    code-ttl-minutes: 5
+    send-interval-seconds: 60
+    daily-max: 10
+
 logging:
   level:
     com.lawyus.snackstore: info

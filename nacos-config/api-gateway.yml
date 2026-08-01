@@ -68,10 +68,7 @@ logging:
     org.springframework.cloud.gateway: info
 
 management:
-  endpoint:
-    gateway:
-      access: read-only  # 或 unrestricted
   endpoints:
     web:
       exposure:
-        include: gateway,refresh,health,env
+        include: health,info

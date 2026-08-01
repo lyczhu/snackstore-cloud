@@ -1,6 +1,7 @@
 package com.lawyus.snackstore.user.presentation.controller;
 
 import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.user.application.dto.SmsCodeSendCommand;
 import com.lawyus.snackstore.user.application.dto.UserRegisterCommand;
 import com.lawyus.snackstore.user.application.dto.UserLoginCommand;
 import com.lawyus.snackstore.user.application.service.UserApplicationService;
@@ -16,6 +17,12 @@ public class AuthController {
 
     public AuthController(UserApplicationService userApplicationService) {
         this.userApplicationService = userApplicationService;
+    }
+
+    @PostMapping("/sms-code")
+    public Result<Void> sendSmsCode(@Valid @RequestBody SmsCodeSendCommand command) {
+        userApplicationService.sendSmsCode(command.getPhone());
+        return Result.success(null);
     }
 
     @PostMapping("/register")

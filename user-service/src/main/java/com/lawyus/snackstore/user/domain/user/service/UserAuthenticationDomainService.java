@@ -67,7 +67,10 @@ public class UserAuthenticationDomainService {
     }
 
     private void validateSmsCode(String smsCode, String expectedCode) {
-        if (expectedCode == null || !expectedCode.equals(smsCode)) {
+        if (expectedCode == null) {
+            throw BusinessExceptionEnum.SMS_CODE_EXPIRED.getException();
+        }
+        if (!expectedCode.equals(smsCode)) {
             throw BusinessExceptionEnum.SMS_CODE_ERROR.getException();
         }
     }

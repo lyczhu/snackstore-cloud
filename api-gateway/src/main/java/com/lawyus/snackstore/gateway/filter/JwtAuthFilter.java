@@ -39,6 +39,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     // 白名单条目格式为 "HTTP方法:ANT路径"，仅当方法与路径同时匹配时放行
     private static final Set<String> WHITE_LIST = Set.of(
+            "POST:/api/auth/sms-code",
             "POST:/api/auth/register",
             "POST:/api/auth/login",
             "POST:/api/auth/admin/login",

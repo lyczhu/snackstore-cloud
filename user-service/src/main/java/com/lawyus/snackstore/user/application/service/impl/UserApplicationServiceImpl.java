@@ -1,7 +1,10 @@
 package com.lawyus.snackstore.user.application.service.impl;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +20,12 @@ import com.lawyus.snackstore.user.domain.common.model.PagedResult;
 import com.lawyus.snackstore.user.domain.user.model.entity.User;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.Phone;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.UserStatus;
+import com.lawyus.snackstore.user.domain.user.port.SmsSender;
 import com.lawyus.snackstore.user.domain.user.port.TokenPort;
 import com.lawyus.snackstore.user.domain.user.port.VerificationCodePort;
 import com.lawyus.snackstore.user.domain.user.service.UserAuthenticationDomainService;
 import com.lawyus.snackstore.user.domain.user.service.UserManagementDomainService;
+import com.lawyus.snackstore.user.exception.BusinessExceptionEnum;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,16 +36,34 @@ public class UserApplicationServiceImpl implements UserApplicationService {
     private final UserAuthenticationDomainService userAuthenticationDomainService;
     private final UserManagementDomainService userManagementDomainService;
     private final VerificationCodePort verificationCodePort;
+    private final SmsSender smsSender;
     private final TokenPort tokenPort;
+
+    @Value("${user.sms.code-ttl-minutes:5}")
+    private long codeTtlMinutes;
 
     public UserApplicationServiceImpl(UserAuthenticationDomainService userAuthenticationDomainService,
                                       UserManagementDomainService userManagementDomainService,
                                       VerificationCodePort verificationCodePort,
+                                      SmsSender smsSender,
                                       TokenPort tokenPort) {
         this.userAuthenticationDomainService = userAuthenticationDomainService;
         this.userManagementDomainService = userManagementDomainService;
         this.verificationCodePort = verificationCodePort;
+        this.smsSender = smsSender;
         this.tokenPort = tokenPort;
+    }
+
+    @Override
+    public void sendSmsCode(String phone) {
+        Phone.of(phone);
+        if (!verificationCodePort.tryAcquireSend(phone)) {
+            throw BusinessExceptionEnum.SMS_SEND_TOO_FREQUENT.getException();
+        }
+        String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
+        verificationCodePort.save(phone, code, Duration.ofMinutes(codeTtlMinutes));
+        smsSender.send(phone, code);
+        log.info("验证码已发放: phone={}, ttl={}分钟", phone, codeTtlMinutes);
     }
 
     @Override
