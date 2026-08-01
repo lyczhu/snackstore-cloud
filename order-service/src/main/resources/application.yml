@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: order-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import:
+      - optional:nacos:${spring.application.name}.yml
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        group: DEFAULT_GROUP
+      config:
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true

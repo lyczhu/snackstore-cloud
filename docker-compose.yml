@@ -1,0 +1,294 @@
+services:
+  mysql:
+    image: mysql:9.5
+    container_name: snackstore-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_CHARSET: utf8mb4
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - snackstore
+
+  redis:
+    image: redis:8.2
+    container_name: snackstore-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - snackstore
+
+  nacos:
+    image: nacos/nacos-server:v3.1.1
+    container_name: snackstore-nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "9849:9849"
+      - "8090:8080"
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: derby
+      JVM_XMS: 512m
+      JVM_XMX: 512m
+      JVM_XMN: 256m
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:-SecretKey012345678901234567890123456789012345678901234567890123456789}
+      NACOS_AUTH_ENABLE: false
+      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:-nacos}
+      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:-nacos}
+    volumes:
+      - nacos-logs:/home/nacos/logs
+      - nacos-data:/home/nacos/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/actuator"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - snackstore
+
+  kafka:
+    image: apache/kafka:4.1.0
+    container_name: snackstore-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: snackstore-kafka-cluster-01
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:29092,PLAINTEXT_HOST://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - snackstore
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.3
+    container_name: snackstore-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - snackstore
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.2.3
+    container_name: snackstore-kibana
+    environment:
+      - SERVER_NAME=kibana
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - I18N_LOCALE=zh-CN
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - snackstore
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: snackstore-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_DISCOVERY_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_DISCOVERY_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
+      SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+    depends_on:
+      nacos:
+        condition: service_healthy
+    networks:
+      - snackstore
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: snackstore-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_DISCOVERY_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_DISCOVERY_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
+      SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/snackstore_user?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_started
+      redis:
+        condition: service_started
+      nacos:
+        condition: service_healthy
+    networks:
+      - snackstore
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: snackstore-product-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_DISCOVERY_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_DISCOVERY_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
+      SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/snackstore_product?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      mysql:
+        condition: service_started
+      redis:
+        condition: service_started
+      nacos:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - snackstore
+
+  product-search-service:
+    build:
+      context: ./product-search-service
+      dockerfile: Dockerfile
+    container_name: snackstore-product-search-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_DISCOVERY_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_DISCOVERY_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
+      SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      nacos:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - snackstore
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: snackstore-order-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_DISCOVERY_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_DISCOVERY_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
+      SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/snackstore_order?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_started
+      redis:
+        condition: service_started
+      nacos:
+        condition: service_healthy
+    networks:
+      - snackstore
+
+  statistics-service:
+    build:
+      context: ./statistics-service
+      dockerfile: Dockerfile
+    container_name: snackstore-statistics-service
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
+      SPRING_CLOUD_NACOS_DISCOVERY_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_DISCOVERY_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_USERNAME: ${NACOS_USERNAME:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
+      SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
+      SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_started
+      nacos:
+        condition: service_healthy
+    networks:
+      - snackstore
+
+volumes:
+  mysql-data:
+  redis-data:
+  nacos-logs:
+  nacos-data:
+  elasticsearch-data:
+
+networks:
+  snackstore:
+    driver: bridge

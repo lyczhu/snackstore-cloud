@@ -1,0 +1,32 @@
+# 商品搜索服务配置
+server:
+  port: 8085
+
+spring:
+  elasticsearch:
+    uris: ${ES_URIS:http://localhost:9200}
+    username: ${ES_USERNAME:}
+    password: ${ES_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: product-search-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.StringDeserializer
+        spring.json.trusted.packages: com.lawyus.snackstore.common.message
+        isolation.level: read_committed
+      max-poll-records: 100
+    listener:
+      ack-mode: MANUAL_IMMEDIATE
+    topic:
+      product-changed: product-changed
+
+logging:
+  level:
+    com.lawyus.snackstore.product.search: info
+    org.springframework.kafka: info
+    co.elastic.clients: warn

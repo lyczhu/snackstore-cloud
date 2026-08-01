@@ -1,0 +1,86 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**,/api/auth/**
+          filters:
+            - StripPrefix=1
+        - id: product-search-service
+          uri: lb://product-search-service
+          predicates:
+            - Path=/api/product-search/**
+          filters:
+            - StripPrefix=1
+          order: 0
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - StripPrefix=1
+          order: 1
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+        - id: statistics-service
+          uri: lb://statistics-service
+          predicates:
+            - Path=/api/statistics/**
+          filters:
+            - StripPrefix=1
+      sentinel:
+        transport:
+          dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+        eager: true
+        datasource:
+          flow:
+            nacos:
+              server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+              namespace: ${NACOS_NAMESPACE:dev}
+              group-id: SENTINEL_GROUP
+              data-id: ${spring.application.name}-flow-rules
+              rule-type: flow
+              username: ${NACOS_USERNAME:nacos}
+              password: ${NACOS_PASSWORD:nacos}
+          degrade:
+            nacos:
+              server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+              namespace: ${NACOS_NAMESPACE:dev}
+              group-id: SENTINEL_GROUP
+              data-id: ${spring.application.name}-degrade-rules
+              rule-type: degrade
+              username: ${NACOS_USERNAME:nacos}
+              password: ${NACOS_PASSWORD:nacos}
+
+jwt:
+  secret: ${JWT_SECRET:snackstore-cloud-jwt-secret-key-for-mvp-xs3921n}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+logging:
+  level:
+    com.lawyus.snackstore: debug
+    org.springframework.cloud.gateway: info
+
+management:
+  endpoint:
+    gateway:
+      access: read-only  # 或 unrestricted
+  endpoints:
+    web:
+      exposure:
+        include: gateway,refresh,health,env

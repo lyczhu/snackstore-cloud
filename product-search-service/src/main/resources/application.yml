@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: product-search-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import:
+      - optional:nacos:application.yml
+      - optional:nacos:product-search-service.yml
+      - optional:nacos:product-search-service-${spring.profiles.active}.yml
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        enabled: true
+        register-enabled: true
+      config:
+        enabled: true
+        file-extension: yml
+        refresh-enabled: true
