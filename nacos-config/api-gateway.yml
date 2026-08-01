@@ -43,29 +43,20 @@ spring:
             - Path=/api/statistics/**
           filters:
             - StripPrefix=1
-      sentinel:
-        transport:
-          dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
-        eager: true
-        datasource:
-          flow:
-            nacos:
-              server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
-              namespace: ${NACOS_NAMESPACE:dev}
-              group-id: SENTINEL_GROUP
-              data-id: ${spring.application.name}-flow-rules
-              rule-type: flow
-              username: ${NACOS_USERNAME:nacos}
-              password: ${NACOS_PASSWORD:nacos}
-          degrade:
-            nacos:
-              server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
-              namespace: ${NACOS_NAMESPACE:dev}
-              group-id: SENTINEL_GROUP
-              data-id: ${spring.application.name}-degrade-rules
-              rule-type: degrade
-              username: ${NACOS_USERNAME:nacos}
-              password: ${NACOS_PASSWORD:nacos}
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+      datasource:
+        flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            namespace: ${NACOS_NAMESPACE:public}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-flow-rules
+            rule-type: gw-flow
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
 
 jwt:
   secret: ${JWT_SECRET}

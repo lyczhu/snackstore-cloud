@@ -50,6 +50,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 120s
     networks:
       - snackstore
 
@@ -126,6 +127,8 @@ services:
       SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
       SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
       SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_NAMESPACE: public
       # 仅限本地开发的 JWT 密钥，生产环境必须通过 JWT_SECRET 注入真实密钥
       JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me-0123456789}
     depends_on:

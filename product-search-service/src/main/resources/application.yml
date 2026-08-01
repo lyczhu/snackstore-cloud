@@ -14,9 +14,11 @@ spring:
       username: ${NACOS_USERNAME:nacos}
       password: ${NACOS_PASSWORD:nacos}
       discovery:
+        namespace: ${NACOS_NAMESPACE:public}
         enabled: true
         register-enabled: true
       config:
+        namespace: ${NACOS_NAMESPACE:public}
         enabled: true
         file-extension: yml
         refresh-enabled: true
