@@ -126,6 +126,8 @@ services:
       SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
       SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
       SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      # 仅限本地开发的 JWT 密钥，生产环境必须通过 JWT_SECRET 注入真实密钥
+      JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me-0123456789}
     depends_on:
       nacos:
         condition: service_healthy
@@ -148,6 +150,8 @@ services:
       SPRING_CLOUD_NACOS_CONFIG_PASSWORD: ${NACOS_PASSWORD:-nacos}
       SPRING_CLOUD_NACOS_CONFIG_NAMESPACE: public
       SPRING_CLOUD_NACOS_DISCOVERY_NAMESPACE: public
+      # 仅限本地开发的 JWT 密钥，生产环境必须通过 JWT_SECRET 注入真实密钥
+      JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me-0123456789}
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/snackstore_user?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USERNAME:-root}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-root}

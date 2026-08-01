@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -71,6 +72,34 @@ public class GlobalExceptionHandler {
     public Result<Object> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("参数非法: {}", e.getMessage());
         return Result.validateFailed(e.getMessage());
+    }
+
+    /**
+     * 处理缺少必填请求头(X-User-Id 缺失即 403)
+     *
+     * @param e 缺失请求头异常
+     * @return Result
+     */
+    @ExceptionHandler(value = MissingRequestHeaderException.class)
+    public Result<Object> handleMissingRequestHeader(MissingRequestHeaderException e) {
+        if ("X-User-Id".equals(e.getHeaderName())) {
+            log.warn("缺少身份标识请求头: {}", e.getMessage());
+            return Result.forbidden();
+        }
+        log.warn("缺少请求头: {}", e.getMessage());
+        return Result.validateFailed(e.getMessage());
+    }
+
+    /**
+     * 处理安全校验失败(归属校验等)
+     *
+     * @param e 安全异常
+     * @return Result
+     */
+    @ExceptionHandler(value = SecurityException.class)
+    public Result<Object> handleSecurityException(SecurityException e) {
+        log.warn("安全校验失败: {}", e.getMessage());
+        return Result.forbidden();
     }
 
     /**

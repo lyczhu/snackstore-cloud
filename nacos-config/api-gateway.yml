@@ -14,7 +14,7 @@ spring:
         - id: user-service
           uri: lb://user-service
           predicates:
-            - Path=/api/users/**,/api/auth/**
+            - Path=/api/users/**,/api/auth/**,/api/admin/**
           filters:
             - StripPrefix=1
         - id: product-search-service
@@ -68,7 +68,7 @@ spring:
               password: ${NACOS_PASSWORD:nacos}
 
 jwt:
-  secret: ${JWT_SECRET:snackstore-cloud-jwt-secret-key-for-mvp-xs3921n}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 logging:

@@ -11,18 +11,20 @@ import java.util.concurrent.TimeUnit;
 public class JwtTokenPort implements TokenPort {
 
     private final StringRedisTemplate redisTemplate;
+    private final JwtUtil jwtUtil;
 
-    public JwtTokenPort(StringRedisTemplate redisTemplate) {
+    public JwtTokenPort(StringRedisTemplate redisTemplate, JwtUtil jwtUtil) {
         this.redisTemplate = redisTemplate;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
     public String generate(Long userId, String phone, String role) {
-        return JwtUtil.generateToken(userId, phone, role);
+        return jwtUtil.generateToken(userId, phone, role);
     }
 
     @Override
     public void store(Long userId, String token) {
-        redisTemplate.opsForValue().set("token:" + userId, token, 2, TimeUnit.HOURS);
+        redisTemplate.opsForValue().set("token:" + userId, token, jwtUtil.getExpirationMillis(), TimeUnit.MILLISECONDS);
     }
 }

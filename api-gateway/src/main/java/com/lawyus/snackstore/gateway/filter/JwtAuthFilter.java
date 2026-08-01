@@ -4,14 +4,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.common.response.ResultCode;
+import com.lawyus.snackstore.common.util.JwtUtil;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -25,9 +23,6 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.Set;
 
 @Component
@@ -51,13 +46,29 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             "GET:/api/products/categories/**"
     );
 
-    private static final Map<String, String> ADMIN_PATH_PATTERNS = Map.of(
-            "/api/admin/**", "admin",
-            "/api/auth/admin/**", "admin"
+    // 仅管理员可访问的前缀路径（管理路由统一放在 /api/admin/** 下）
+    private static final Set<String> ADMIN_PREFIX_PATTERNS = Set.of(
+            "/api/admin/**",
+            "/api/auth/admin/**"
     );
 
-    @Value("${jwt.secret}")
-    private String secret;
+    // 仅管理员可访问的敏感接口，格式同白名单 "HTTP方法:ANT路径"
+    private static final Set<String> ADMIN_ONLY_PATTERNS = Set.of(
+            "POST:/api/products",
+            "PUT:/api/products/*",
+            "DELETE:/api/products/*",
+            "PATCH:/api/products/*/status",
+            "POST:/api/products/*/stock/deductions",
+            "POST:/api/products/*/stock/rollbacks",
+            "POST:/api/products/stock/batch-deductions",
+            "POST:/api/products/stock/batch-rollbacks"
+    );
+
+    private final JwtUtil jwtUtil;
+
+    public JwtAuthFilter(JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -75,10 +86,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         }
 
         try {
-            Claims claims = parseToken(token);
+            Claims claims = jwtUtil.parseToken(token);
             String role = claims.get("role", String.class);
 
-            if (requiresAdmin(path) && !"admin".equals(role)) {
+            if (requiresAdmin(request.getMethod().name(), path) && !isAdmin(role)) {
                 Long userId = claims.get("userId", Long.class);
                 log.warn("非管理员访问管理接口: userId={}, path={}", userId, path);
                 return writeErrorResponse(exchange, HttpStatus.FORBIDDEN, ResultCode.FORBIDDEN);
@@ -120,8 +131,23 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         });
     }
 
-    private boolean requiresAdmin(String path) {
-        return ADMIN_PATH_PATTERNS.keySet().stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
+    private boolean requiresAdmin(String method, String path) {
+        if (ADMIN_PREFIX_PATTERNS.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path))) {
+            return true;
+        }
+        return ADMIN_ONLY_PATTERNS.stream().anyMatch(entry -> {
+            int idx = entry.indexOf(':');
+            if (idx < 0) {
+                return PATH_MATCHER.match(entry, path);
+            }
+            String m = entry.substring(0, idx);
+            String p = entry.substring(idx + 1);
+            return m.equals(method) && PATH_MATCHER.match(p, path);
+        });
+    }
+
+    private boolean isAdmin(String role) {
+        return "admin".equalsIgnoreCase(role);
     }
 
     private String extractToken(ServerHttpRequest request) {
@@ -130,15 +156,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return null;
         }
         return authHeader.substring(BEARER_PREFIX.length());
-    }
-
-    private Claims parseToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        return Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
     }
 
     private Mono<Void> writeErrorResponse(ServerWebExchange exchange, HttpStatus status, ResultCode resultCode) {

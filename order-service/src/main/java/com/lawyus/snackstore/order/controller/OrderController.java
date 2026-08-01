@@ -29,18 +29,20 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public Result<OrderVO> getOrderDetail(@PathVariable Long id,
-                                          @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+                                          @RequestHeader("X-User-Id") Long userId) {
         return Result.success(orderService.getOrderDetail(id, userId));
     }
 
     @GetMapping
-    public Result<PageResult<OrderVO>> getOrderList(OrderQueryDTO queryDTO) {
+    public Result<PageResult<OrderVO>> getOrderList(@RequestHeader("X-User-Id") Long userId,
+                                                    OrderQueryDTO queryDTO) {
+        queryDTO.setUserId(userId);
         return Result.success(orderService.getOrderList(queryDTO));
     }
 
     @PatchMapping("/{id}/status")
     public Result<Void> updateOrderStatus(@PathVariable Long id,
-                                         @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                         @RequestHeader("X-User-Id") Long userId,
                                          @RequestParam Integer status) {
         // status: 1=已支付(COMPLETED) 2=已取消(CANCELLED)
         if (status != null && status == 1) {

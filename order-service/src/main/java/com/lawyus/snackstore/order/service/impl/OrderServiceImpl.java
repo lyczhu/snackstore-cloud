@@ -132,7 +132,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getId, id)
-                        .eq(userId != null, Order::getUserId, userId));
+                        .eq(Order::getUserId, userId));
         if (order == null) {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }
@@ -165,7 +165,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getId, id)
-                        .eq(userId != null, Order::getUserId, userId));
+                        .eq(Order::getUserId, userId));
         if (order == null) {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }
@@ -183,7 +183,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getId, id)
-                        .eq(userId != null, Order::getUserId, userId));
+                        .eq(Order::getUserId, userId));
         if (order == null) {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }
@@ -216,7 +216,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderMapper.selectOne(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getId, id)
-                        .eq(userId != null, Order::getUserId, userId));
+                        .eq(Order::getUserId, userId));
         if (order == null) {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }

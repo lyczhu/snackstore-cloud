@@ -35,7 +35,7 @@ spring:
     encoding: UTF-8
 
 jwt:
-  secret: ${JWT_SECRET:snackstore-cloud-jwt-secret-key-for-mvp-xs3921n}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
 logging:
