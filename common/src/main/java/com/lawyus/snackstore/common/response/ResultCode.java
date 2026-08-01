@@ -42,6 +42,7 @@ public enum ResultCode {
     ORDER_CREATE_FAILED(4003, "订单创建失败"),
     ORDER_CANNOT_CANCEL(4004, "订单无法取消"),
     ORDER_CANNOT_PAY(4005, "订单无法支付"),
+    ORDER_CANCEL_FAILED(4006, "订单取消失败"),
 
     STATISTICS_SERVICE_ERROR(5001, "统计服务异常"),
 

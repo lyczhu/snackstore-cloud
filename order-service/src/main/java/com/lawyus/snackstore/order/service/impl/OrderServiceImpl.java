@@ -2,6 +2,7 @@ package com.lawyus.snackstore.order.service.impl;
 
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lawyus.snackstore.order.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.common.response.PageResult;
@@ -56,7 +57,8 @@ public class OrderServiceImpl implements OrderService {
         String orderNo = generateOrderNo();
         List<OrderItem> itemList = handleOrderItems(orderDto.getItems(), orderNo);
 
-        BigDecimal totalAmount = itemList.stream().map(OrderItem::getProductPrice)
+        BigDecimal totalAmount = itemList.stream()
+                .map(item -> item.getProductPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         Order order = new Order();
         order.setUserId(userId);
@@ -162,19 +164,22 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void payOrder(Long id, Long userId) {
-        Order order = orderMapper.selectOne(
-                new LambdaQueryWrapper<Order>()
-                        .eq(Order::getId, id)
-                        .eq(Order::getUserId, userId));
-        if (order == null) {
-            throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
-        }
-        if (order.getStatus() != ORDER_STATUS_PENDING) {
+        int rows = orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, id)
+                .eq(Order::getUserId, userId)
+                .eq(Order::getStatus, ORDER_STATUS_PENDING)
+                .set(Order::getStatus, ORDER_STATUS_COMPLETED)
+                .set(Order::getPayTime, LocalDateTime.now()));
+        if (rows == 0) {
+            Order order = orderMapper.selectOne(
+                    new LambdaQueryWrapper<Order>()
+                            .eq(Order::getId, id)
+                            .eq(Order::getUserId, userId));
+            if (order == null) {
+                throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
+            }
             throw BusinessExceptionEnum.ORDER_CANNOT_PAY.getException();
         }
-        order.setStatus(ORDER_STATUS_COMPLETED);
-        order.setPayTime(LocalDateTime.now());
-        orderMapper.updateById(order);
     }
 
     @Override
@@ -187,7 +192,12 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
         }
-        if (order.getStatus() != ORDER_STATUS_PENDING) {
+        int rows = orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, id)
+                .eq(Order::getUserId, userId)
+                .eq(Order::getStatus, ORDER_STATUS_PENDING)
+                .set(Order::getStatus, ORDER_STATUS_CANCELLED));
+        if (rows == 0) {
             throw BusinessExceptionEnum.ORDER_CANNOT_CANCEL.getException();
         }
 
@@ -204,10 +214,11 @@ public class OrderServiceImpl implements OrderService {
         }).toList();
         batchDTO.setItems(stockItems);
 
-        productClient.batchRollbackStock(batchDTO);
-
-        order.setStatus(ORDER_STATUS_CANCELLED);
-        orderMapper.updateById(order);
+        Result<Boolean> stockResult = productClient.batchRollbackStock(batchDTO);
+        if (stockResult == null || stockResult.getData() == null || !stockResult.getData()) {
+            log.error("取消订单回滚库存失败，事务回滚: orderId={}", id);
+            throw BusinessExceptionEnum.ORDER_CANCEL_FAILED.getException("库存回滚失败，请稍后重试");
+        }
     }
 
     @Override
