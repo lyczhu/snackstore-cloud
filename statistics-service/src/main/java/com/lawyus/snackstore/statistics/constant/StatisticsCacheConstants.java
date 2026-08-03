@@ -2,6 +2,7 @@ package com.lawyus.snackstore.statistics.constant;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class StatisticsCacheConstants {
 
@@ -23,6 +24,11 @@ public final class StatisticsCacheConstants {
     public static final long TREND_CACHE_TTL_SECONDS = 300;
 
     public static final long TOP_CACHE_TTL_SECONDS = 300;
+
+    public static long jitteredTtlSeconds(long ttlSeconds) {
+        long delta = ttlSeconds / 10;
+        return ttlSeconds + ThreadLocalRandom.current().nextLong(-delta, delta + 1);
+    }
 
     public static String dashboardKey(LocalDate date) {
         return DASHBOARD_KEY_PREFIX + date.format(DATE_FORMATTER);

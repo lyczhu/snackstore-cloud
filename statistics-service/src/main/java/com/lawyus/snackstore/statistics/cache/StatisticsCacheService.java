@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.statistics.cache;
 
+import com.lawyus.snackstore.statistics.constant.StatisticsCacheConstants;
 import java.util.concurrent.TimeUnit;
 
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ public class StatisticsCacheService {
     }
 
     public void put(String key, Object value, long ttlSeconds) {
-        redisTemplate.opsForValue().set(key, value, ttlSeconds, TimeUnit.SECONDS);
+        long jitteredTtl = StatisticsCacheConstants.jitteredTtlSeconds(ttlSeconds);
+        redisTemplate.opsForValue().set(key, value, jitteredTtl, TimeUnit.SECONDS);
     }
 }

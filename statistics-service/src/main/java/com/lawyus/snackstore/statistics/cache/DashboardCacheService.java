@@ -30,8 +30,9 @@ public class DashboardCacheService {
 
     public void put(DashboardVO dashboardVO) {
         String key = currentKey();
-        redisTemplate.opsForValue().set(key, dashboardVO,
-                StatisticsCacheConstants.DASHBOARD_CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        long jitteredTtl = StatisticsCacheConstants.jitteredTtlSeconds(
+                StatisticsCacheConstants.DASHBOARD_CACHE_TTL_SECONDS);
+        redisTemplate.opsForValue().set(key, dashboardVO, jitteredTtl, TimeUnit.SECONDS);
     }
 
     private String currentKey() {
