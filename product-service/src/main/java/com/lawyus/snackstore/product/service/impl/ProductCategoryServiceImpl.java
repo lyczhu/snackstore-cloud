@@ -2,13 +2,18 @@ package com.lawyus.snackstore.product.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
+import com.lawyus.snackstore.product.model.entity.Product;
+import com.lawyus.snackstore.product.model.event.ProductChangedEvent;
+import com.lawyus.snackstore.product.model.event.ProductChangedEvent.ChangeType;
 import com.lawyus.snackstore.product.repository.ProductCategoryMapper;
+import com.lawyus.snackstore.product.repository.ProductMapper;
 import com.lawyus.snackstore.product.model.dto.ProductCategoryDTO;
 import com.lawyus.snackstore.product.model.entity.ProductCategory;
 import com.lawyus.snackstore.product.model.vo.ProductCategoryVO;
 import com.lawyus.snackstore.product.service.ProductCategoryService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,9 +25,15 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
     private static final String CACHE_NAME = "product:category";
 
     private final ProductCategoryMapper categoryMapper;
+    private final ProductMapper productMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ProductCategoryServiceImpl(ProductCategoryMapper categoryMapper) {
+    public ProductCategoryServiceImpl(ProductCategoryMapper categoryMapper,
+                                      ProductMapper productMapper,
+                                      ApplicationEventPublisher eventPublisher) {
         this.categoryMapper = categoryMapper;
+        this.productMapper = productMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -80,6 +91,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
             category.setStatus(dto.getStatus());
         }
         categoryMapper.updateById(category);
+        publishCategoryChangedEvents(id);
         return convertToVO(category);
     }
 
@@ -91,7 +103,24 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
         if (category == null) {
             throw BusinessExceptionEnum.CATEGORY_NOT_FOUND.getException();
         }
+        Long productCount = productMapper.selectCount(
+                new LambdaQueryWrapper<Product>().eq(Product::getCategoryId, id));
+        if (productCount > 0) {
+            throw BusinessExceptionEnum.CATEGORY_IN_USE.getException();
+        }
         categoryMapper.deleteById(id);
+    }
+
+    private void publishCategoryChangedEvents(Long categoryId) {
+        List<Long> productIds = productMapper.selectList(
+                        new LambdaQueryWrapper<Product>().eq(Product::getCategoryId, categoryId)).stream()
+                .map(Product::getId)
+                .toList();
+        if (productIds.isEmpty()) {
+            return;
+        }
+        productIds.forEach(productId ->
+                eventPublisher.publishEvent(new ProductChangedEvent(productId, ChangeType.UPDATED)));
     }
 
     private ProductCategoryVO convertToVO(ProductCategory category) {

@@ -36,6 +36,7 @@ public enum ResultCode {
     CATEGORY_ALREADY_EXISTS(3005, "分类已存在"),
     SNAPSHOT_NOT_FOUND(3006, "商品快照不存在"),
     PRODUCT_SEARCH_ERROR(3007, "商品搜索异常"),
+    CATEGORY_IN_USE(3008, "分类下存在商品，无法删除"),
 
     ORDER_NOT_FOUND(4001, "订单不存在"),
     ORDER_STATUS_ERROR(4002, "订单状态异常"),

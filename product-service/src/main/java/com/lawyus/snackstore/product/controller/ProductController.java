@@ -24,7 +24,7 @@ public class ProductController {
     }
 
     @GetMapping
-    public Result<PageResult<ProductVO>> getProducts(ProductQueryDTO queryDTO) {
+    public Result<PageResult<ProductVO>> getProducts(@Valid ProductQueryDTO queryDTO) {
         return Result.success(productService.getProductList(queryDTO));
     }
 

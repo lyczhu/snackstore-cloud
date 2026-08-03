@@ -37,6 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class ProductServiceImpl implements ProductService {
 
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("price", "createdAt", "id");
+
     private final ProductMapper productMapper;
     private final ProductCategoryService categoryService;
     private final ProductSnapshotService snapshotService;
@@ -63,7 +65,13 @@ public class ProductServiceImpl implements ProductService {
         if (queryDTO.getStatus() != null) {
             wrapper.eq(Product::getStatus, queryDTO.getStatus());
         }
-        wrapper.orderByDesc(Product::getCreatedAt);
+        if (queryDTO.getMinPrice() != null) {
+            wrapper.ge(Product::getPrice, queryDTO.getMinPrice());
+        }
+        if (queryDTO.getMaxPrice() != null) {
+            wrapper.le(Product::getPrice, queryDTO.getMaxPrice());
+        }
+        applySort(wrapper, queryDTO.getSortField(), queryDTO.getSortOrder());
 
         Page<Product> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
         Page<Product> result = productMapper.selectPage(page, wrapper);
@@ -74,14 +82,34 @@ public class ProductServiceImpl implements ProductService {
                 result.getCurrent(), result.getSize(), result.getTotal());
     }
 
+    private void applySort(LambdaQueryWrapper<Product> wrapper, String sortField, String sortOrder) {
+        if (sortField == null || sortField.isEmpty()) {
+            wrapper.orderByDesc(Product::getCreatedAt);
+            return;
+        }
+        if (!ALLOWED_SORT_FIELDS.contains(sortField)) {
+            throw new IllegalArgumentException("不支持的排序字段: " + sortField);
+        }
+        boolean asc = "asc".equalsIgnoreCase(sortOrder);
+        switch (sortField) {
+            case "price" -> wrapper.orderBy(true, asc, Product::getPrice);
+            case "createdAt" -> wrapper.orderBy(true, asc, Product::getCreatedAt);
+            default -> wrapper.orderBy(true, asc, Product::getId);
+        }
+    }
+
     @Override
     public PageResult<ProductVO> searchByKeyword(ProductSearchDTO searchDTO) {
         ProductQueryDTO queryDTO = new ProductQueryDTO();
         queryDTO.setKeyword(searchDTO.getKeyword());
         queryDTO.setCategoryId(searchDTO.getCategoryId());
         queryDTO.setStatus(searchDTO.getStatus());
+        queryDTO.setMinPrice(searchDTO.getMinPrice());
+        queryDTO.setMaxPrice(searchDTO.getMaxPrice());
         queryDTO.setPageNum(searchDTO.getPageNum());
         queryDTO.setPageSize(searchDTO.getPageSize());
+        queryDTO.setSortField(searchDTO.getSortField());
+        queryDTO.setSortOrder(searchDTO.getSortOrder());
         log.info("ES搜索降级到MySQL查询: keyword={}", searchDTO.getKeyword());
         return getProductList(queryDTO);
     }
@@ -112,6 +140,9 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ProductVO createProduct(ProductDTO dto) {
+        if (dto.getCategoryId() != null) {
+            categoryService.getCategoryById(dto.getCategoryId());
+        }
         Product product = new Product();
         product.setCategoryId(dto.getCategoryId());
         product.setName(dto.getName());
@@ -137,6 +168,7 @@ public class ProductServiceImpl implements ProductService {
         }
         snapshotService.createSnapshot(product);
         if (dto.getCategoryId() != null) {
+            categoryService.getCategoryById(dto.getCategoryId());
             product.setCategoryId(dto.getCategoryId());
         }
         if (dto.getName() != null) {
@@ -194,6 +226,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deductStock(Long productId, Integer quantity) {
+        validateQuantity(quantity);
         int rows = productMapper.update(null,
                 new LambdaUpdateWrapper<Product>()
                         .eq(Product::getId, productId)
@@ -208,12 +241,23 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean rollbackStock(Long productId, Integer quantity) {
-        productMapper.update(null,
+        validateQuantity(quantity);
+        int rows = productMapper.update(null,
                 new LambdaUpdateWrapper<Product>()
                         .eq(Product::getId, productId)
                         .setSql("stock = stock + " + quantity));
+        if (rows == 0) {
+            log.warn("回滚库存失败，商品不存在: productId={}", productId);
+            return false;
+        }
         eventPublisher.publishEvent(new ProductChangedEvent(productId, ChangeType.STOCK_CHANGED));
         return true;
+    }
+
+    private void validateQuantity(Integer quantity) {
+        if (quantity == null || quantity < 1) {
+            throw new IllegalArgumentException("数量必须大于0");
+        }
     }
 
     @Override

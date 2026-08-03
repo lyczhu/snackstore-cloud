@@ -45,6 +45,8 @@ public class ProductInternalServiceImpl implements ProductInternalService {
 
     @Override
     public PageResult<ProductSearchSyncMessage> listForSearch(int pageNum, int pageSize) {
+        pageNum = Math.max(1, pageNum);
+        pageSize = Math.min(Math.max(1, pageSize), 200);
         Page<Product> page = new Page<>(pageNum, pageSize);
         Page<Product> result = productMapper.selectPage(page, null);
         Map<Long, ProductCategoryVO> categoryMap = loadCategoryMap();
