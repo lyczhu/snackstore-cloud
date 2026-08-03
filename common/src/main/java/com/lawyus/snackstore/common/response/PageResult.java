@@ -123,7 +123,7 @@ public class PageResult<T> extends Result<List<T>> {
         result.setPageNum(pageNum);
         result.setPageSize(pageSize);
         result.setTotal(total);
-        result.setPages((total + pageSize - 1) / pageSize);
+        result.setPages(pageSize == null || pageSize <= 0 ? 0L : (total + pageSize - 1) / pageSize);
         return result;
     }
 }

@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class OrderInternalServiceImpl implements OrderInternalService {
 
+    private static final int ORDER_STATUS_CANCELLED = 2;
+
     private final OrderMapper orderMapper;
 
     public OrderInternalServiceImpl(OrderMapper orderMapper) {
@@ -25,7 +27,8 @@ public class OrderInternalServiceImpl implements OrderInternalService {
     @Override
     public OrderStatisticsVO getOrderStatistics() {
         OrderStatisticsVO vo = new OrderStatisticsVO();
-        vo.setOrderCount(orderMapper.selectCount(null));
+        vo.setOrderCount(orderMapper.selectCount(
+                new LambdaQueryWrapper<Order>().ne(Order::getStatus, ORDER_STATUS_CANCELLED)));
         vo.setTodayOrderCount(countTodayOrders());
         return vo;
     }
@@ -47,6 +50,7 @@ public class OrderInternalServiceImpl implements OrderInternalService {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime startOfNextDay = startOfDay.plusDays(1);
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
+                .ne(Order::getStatus, ORDER_STATUS_CANCELLED)
                 .ge(Order::getCreatedAt, startOfDay)
                 .lt(Order::getCreatedAt, startOfNextDay);
         return orderMapper.selectCount(wrapper);

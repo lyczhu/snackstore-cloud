@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.order.model.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -32,6 +33,7 @@ public class OrderCreateDTO {
         private Long productId;
 
         @NotNull(message = "购买数量不能为空")
+        @Min(value = 1, message = "购买数量必须大于0")
         private Integer quantity;
     }
 }

@@ -216,14 +216,20 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteOrder(Long id, Long userId) {
-        Order order = orderMapper.selectOne(
-                new LambdaQueryWrapper<Order>()
-                        .eq(Order::getId, id)
-                        .eq(Order::getUserId, userId));
-        if (order == null) {
-            throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
+        int rows = orderMapper.delete(new LambdaQueryWrapper<Order>()
+                .eq(Order::getId, id)
+                .eq(Order::getUserId, userId)
+                .eq(Order::getStatus, ORDER_STATUS_CANCELLED));
+        if (rows == 0) {
+            Order order = orderMapper.selectOne(
+                    new LambdaQueryWrapper<Order>()
+                            .eq(Order::getId, id)
+                            .eq(Order::getUserId, userId));
+            if (order == null) {
+                throw BusinessExceptionEnum.ORDER_NOT_FOUND.getException();
+            }
+            throw BusinessExceptionEnum.ORDER_STATUS_ERROR.getException("仅已取消的订单可以删除");
         }
-        orderMapper.deleteById(id);
     }
 
     private OrderVO convertToVO(Order order) {

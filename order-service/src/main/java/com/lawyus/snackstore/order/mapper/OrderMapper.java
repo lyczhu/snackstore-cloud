@@ -15,13 +15,15 @@ import org.apache.ibatis.annotations.Select;
 public interface OrderMapper extends BaseMapper<Order> {
 
     @Select("SELECT DATE(created_at) AS date, COUNT(*) AS orderCount, SUM(total_amount) AS orderAmount "
-            + "FROM t_order WHERE created_at >= #{startTime} AND created_at < #{endTime} "
+            + "FROM t_order WHERE status = 1 AND deleted = 0 "
+            + "AND created_at >= #{startTime} AND created_at < #{endTime} "
             + "GROUP BY DATE(created_at) ORDER BY date")
     List<OrderTrendVO> selectOrderTrend(@Param("startTime") LocalDateTime startTime,
                                         @Param("endTime") LocalDateTime endTime);
 
-    @Select("SELECT product_id AS productId, product_name AS productName, SUM(quantity) AS quantity, "
-            + "SUM(product_price * quantity) AS amount FROM t_order_item "
-            + "GROUP BY product_id, product_name ORDER BY quantity DESC LIMIT #{limit}")
+    @Select("SELECT oi.product_id AS productId, oi.product_name AS productName, SUM(oi.quantity) AS quantity, "
+            + "SUM(oi.product_price * oi.quantity) AS amount FROM t_order_item oi "
+            + "JOIN t_order o ON o.id = oi.order_id AND o.status = 1 AND o.deleted = 0 "
+            + "GROUP BY oi.product_id, oi.product_name ORDER BY quantity DESC LIMIT #{limit}")
     List<ProductSalesVO> selectProductSalesTop(@Param("limit") int limit);
 }

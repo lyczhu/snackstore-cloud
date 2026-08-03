@@ -35,7 +35,7 @@ public class OrderController {
 
     @GetMapping
     public Result<PageResult<OrderVO>> getOrderList(@RequestHeader("X-User-Id") Long userId,
-                                                    OrderQueryDTO queryDTO) {
+                                                    @Valid OrderQueryDTO queryDTO) {
         queryDTO.setUserId(userId);
         return Result.success(orderService.getOrderList(queryDTO));
     }
