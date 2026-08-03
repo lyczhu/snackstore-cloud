@@ -34,6 +34,23 @@
     "statIntervalMs": 1000
   },
   {
+    "resource": "product-search-service",
+    "grade": 1,
+    "count": 0.5,
+    "timeWindow": 10,
+    "minRequestAmount": 10,
+    "statIntervalMs": 1000
+  },
+  {
+    "resource": "product-search-service",
+    "grade": 0,
+    "count": 1000,
+    "slowRatioThreshold": 0.6,
+    "timeWindow": 10,
+    "minRequestAmount": 10,
+    "statIntervalMs": 1000
+  },
+  {
     "resource": "order-service",
     "grade": 1,
     "count": 0.3,
@@ -45,6 +62,23 @@
     "resource": "order-service",
     "grade": 0,
     "count": 1500,
+    "slowRatioThreshold": 0.5,
+    "timeWindow": 15,
+    "minRequestAmount": 5,
+    "statIntervalMs": 1000
+  },
+  {
+    "resource": "statistics-service",
+    "grade": 1,
+    "count": 0.3,
+    "timeWindow": 15,
+    "minRequestAmount": 5,
+    "statIntervalMs": 1000
+  },
+  {
+    "resource": "statistics-service",
+    "grade": 0,
+    "count": 1000,
     "slowRatioThreshold": 0.5,
     "timeWindow": 15,
     "minRequestAmount": 5,

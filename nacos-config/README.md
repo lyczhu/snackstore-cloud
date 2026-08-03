@@ -15,6 +15,8 @@
 | `order-service.yml` | order-service | 订单服务配置（端口 8083、数据源、Redis、Kafka、OpenFeign、Flyway） |
 | `product-search-service.yml` | product-search-service | 商品搜索服务配置（端口 8085、Elasticsearch、Kafka、OpenFeign）  |
 | `statistics-service.yml` | statistics-service | 统计服务配置（端口 8087、Redis、OpenFeign、Sentinel）         |
+| `sentinel/api-gateway-flow-rules.json` | api-gateway | 网关流控规则（data-id: `api-gateway-flow-rules`，group: `SENTINEL_GROUP`，namespace: `public`，rule-type: gw-flow） |
+| `sentinel/api-gateway-degrade-rules.json` | api-gateway | 网关熔断规则（data-id: `api-gateway-degrade-rules`，group: `SENTINEL_GROUP`，namespace: `public`，rule-type: degrade） |
 
 ## 配置加载链路
 
@@ -30,3 +32,4 @@
 - 修改配置时，请同步更新 **Nacos 配置中心** 和 **本目录备份**
 - 敏感信息（密码、密钥等）使用环境变量占位符 `${ENV_VAR:默认值}` 格式，避免硬编码
 - 环境变量：`NACOS_SERVER_ADDR`、`NACOS_USERNAME`、`NACOS_PASSWORD`、`NACOS_NAMESPACE`、`SPRING_PROFILES_ACTIVE` 等
+- Sentinel 规则文件（如 `api-gateway-flow-rules.json`）需手动创建到 Nacos 对应 data-id（namespace `public`、group `SENTINEL_GROUP`），仓库文件仅为备份/基线

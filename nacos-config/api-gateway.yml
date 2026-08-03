@@ -57,6 +57,15 @@ spring:
             rule-type: gw-flow
             username: ${NACOS_USERNAME:nacos}
             password: ${NACOS_PASSWORD:nacos}
+        degrade:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            namespace: ${NACOS_NAMESPACE:public}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-degrade-rules
+            rule-type: degrade
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
     data:
       redis:
         host: ${REDIS_HOST:127.0.0.1}
