@@ -5,6 +5,7 @@ import com.lawyus.snackstore.common.response.ResultCode;
 import com.lawyus.snackstore.user.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -72,6 +73,18 @@ public class GlobalExceptionHandler {
     public Result<Object> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("参数非法: {}", e.getMessage());
         return Result.validateFailed(e.getMessage());
+    }
+
+    /**
+     * 处理唯一键冲突(手机号并发注册/更新竞态，兜底 check-then-insert)
+     *
+     * @param e 唯一键冲突异常
+     * @return Result
+     */
+    @ExceptionHandler(value = DuplicateKeyException.class)
+    public Result<Object> handleDuplicateKeyException(DuplicateKeyException e) {
+        log.warn("唯一键冲突: {}", e.getMessage());
+        return Result.failed(ResultCode.PHONE_ALREADY_EXISTS);
     }
 
     /**

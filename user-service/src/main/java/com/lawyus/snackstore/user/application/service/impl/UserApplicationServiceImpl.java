@@ -130,6 +130,10 @@ public class UserApplicationServiceImpl implements UserApplicationService {
     public void updateUserStatus(Long id, Integer status) {
         UserStatus userStatus = UserStatus.fromCode(status);
         userManagementDomainService.changeUserStatus(id, userStatus);
+        if (userStatus == UserStatus.DISABLED) {
+            tokenPort.revoke(id);
+            log.info("用户已被禁用，已吊销其token: userId={}", id);
+        }
     }
 
     private LoginViewVO buildLoginViewVO(User user) {

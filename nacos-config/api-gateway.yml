@@ -57,6 +57,12 @@ spring:
             rule-type: gw-flow
             username: ${NACOS_USERNAME:nacos}
             password: ${NACOS_PASSWORD:nacos}
+    data:
+      redis:
+        host: ${REDIS_HOST:127.0.0.1}
+        port: ${REDIS_PORT:6379}
+        password: ${REDIS_PASSWORD:}
+        timeout: 3000ms
 
 jwt:
   secret: ${JWT_SECRET}

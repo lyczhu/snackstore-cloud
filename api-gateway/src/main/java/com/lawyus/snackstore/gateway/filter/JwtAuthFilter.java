@@ -14,6 +14,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -36,6 +37,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final String HEADER_USER_ID = "X-User-Id";
     private static final String HEADER_USERNAME = "X-Username";
     private static final String HEADER_USER_ROLE = "X-User-Role";
+    private static final String SESSION_KEY_PREFIX = "token:";
 
     // 白名单条目格式为 "HTTP方法:ANT路径"，仅当方法与路径同时匹配时放行
     private static final Set<String> WHITE_LIST = Set.of(
@@ -66,9 +68,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     );
 
     private final JwtUtil jwtUtil;
+    private final ReactiveStringRedisTemplate redisTemplate;
 
-    public JwtAuthFilter(JwtUtil jwtUtil) {
+    public JwtAuthFilter(JwtUtil jwtUtil, ReactiveStringRedisTemplate redisTemplate) {
         this.jwtUtil = jwtUtil;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -104,8 +108,16 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     .header(HEADER_USERNAME, username)
                     .header(HEADER_USER_ROLE, role)
                     .build();
+            ServerWebExchange mutatedExchange = exchange.mutate().request(modifiedRequest).build();
 
-            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+            return validateSession(token, userId)
+                    .flatMap(valid -> {
+                        if (valid) {
+                            return chain.filter(mutatedExchange);
+                        }
+                        log.warn("会话已失效(用户被禁用或已在新设备登录): userId={}", userId);
+                        return writeErrorResponse(exchange, HttpStatus.UNAUTHORIZED, ResultCode.TOKEN_INVALID);
+                    });
         } catch (ExpiredJwtException e) {
             log.warn("token已过期: {}", e.getMessage());
             return writeErrorResponse(exchange, HttpStatus.UNAUTHORIZED, ResultCode.TOKEN_EXPIRED);
@@ -149,6 +161,20 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private boolean isAdmin(String role) {
         return "admin".equalsIgnoreCase(role);
+    }
+
+    /**
+     * 校验会话: Redis 中 token:{userId} 必须与当前 token 一致(禁用用户已被吊销该 key)。
+     * Redis 不可用时按放行处理，避免网关整体不可用。
+     */
+    private Mono<Boolean> validateSession(String token, Long userId) {
+        return redisTemplate.opsForValue().get(SESSION_KEY_PREFIX + userId)
+                .map(token::equals)
+                .defaultIfEmpty(false)
+                .onErrorResume(e -> {
+                    log.warn("Redis会话校验异常，按放行处理: userId={}, err={}", userId, e.getMessage());
+                    return Mono.just(true);
+                });
     }
 
     private String extractToken(ServerHttpRequest request) {

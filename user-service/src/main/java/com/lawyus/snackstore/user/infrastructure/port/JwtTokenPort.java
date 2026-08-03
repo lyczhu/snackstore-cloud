@@ -27,4 +27,9 @@ public class JwtTokenPort implements TokenPort {
     public void store(Long userId, String token) {
         redisTemplate.opsForValue().set("token:" + userId, token, jwtUtil.getExpirationMillis(), TimeUnit.MILLISECONDS);
     }
+
+    @Override
+    public void revoke(Long userId) {
+        redisTemplate.delete("token:" + userId);
+    }
 }

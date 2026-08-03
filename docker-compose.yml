@@ -131,9 +131,13 @@ services:
       NACOS_NAMESPACE: public
       # 仅限本地开发的 JWT 密钥，生产环境必须通过 JWT_SECRET 注入真实密钥
       JWT_SECRET: ${JWT_SECRET:-dev-only-jwt-secret-change-me-0123456789}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       nacos:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - snackstore
 
