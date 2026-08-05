@@ -42,16 +42,6 @@ spring:
           max-wait: -1ms
           max-idle: 8
           min-idle: 0
-  kafka:
-    bootstrap-servers: ${KAFKA_SERVERS:127.0.0.1:9092}
-    consumer:
-      group-id: order-service-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      auto-offset-reset: earliest
-      enable-auto-commit: false
-    listener:
-      ack-mode: manual_immediate
   flyway:
     enabled: true
     baseline-on-migrate: true

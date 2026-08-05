@@ -3,6 +3,8 @@ server:
   port: 8085
 
 spring:
+  application:
+    name: product-search-service
   elasticsearch:
     uris: ${ES_URIS:http://localhost:9200}
     username: ${ES_USERNAME:}

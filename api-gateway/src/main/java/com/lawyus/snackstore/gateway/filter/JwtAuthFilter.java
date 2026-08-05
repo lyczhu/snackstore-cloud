@@ -1,13 +1,5 @@
 package com.lawyus.snackstore.gateway.filter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lawyus.snackstore.common.response.Result;
-import com.lawyus.snackstore.common.response.ResultCode;
-import com.lawyus.snackstore.common.util.JwtUtil;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -22,9 +14,18 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
 
-import java.util.Set;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.common.response.ResultCode;
+import com.lawyus.snackstore.common.util.JwtUtil;
+import com.lawyus.snackstore.gateway.config.GatewaySecurityProperties;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import reactor.core.publisher.Mono;
 
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
@@ -39,40 +40,16 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final String HEADER_USER_ROLE = "X-User-Role";
     private static final String SESSION_KEY_PREFIX = "token:";
 
-    // 白名单条目格式为 "HTTP方法:ANT路径"，仅当方法与路径同时匹配时放行
-    private static final Set<String> WHITE_LIST = Set.of(
-            "POST:/api/auth/sms-code",
-            "POST:/api/auth/register",
-            "POST:/api/auth/login",
-            "POST:/api/auth/admin/login",
-            "GET:/api/products",
-            "GET:/api/products/categories/**"
-    );
-
-    // 仅管理员可访问的前缀路径（管理路由统一放在 /api/admin/** 下）
-    private static final Set<String> ADMIN_PREFIX_PATTERNS = Set.of(
-            "/api/admin/**",
-            "/api/auth/admin/**"
-    );
-
-    // 仅管理员可访问的敏感接口，格式同白名单 "HTTP方法:ANT路径"
-    private static final Set<String> ADMIN_ONLY_PATTERNS = Set.of(
-            "POST:/api/products",
-            "PUT:/api/products/*",
-            "DELETE:/api/products/*",
-            "PATCH:/api/products/*/status",
-            "POST:/api/products/*/stock/deductions",
-            "POST:/api/products/*/stock/rollbacks",
-            "POST:/api/products/stock/batch-deductions",
-            "POST:/api/products/stock/batch-rollbacks"
-    );
-
     private final JwtUtil jwtUtil;
     private final ReactiveStringRedisTemplate redisTemplate;
+    private final GatewaySecurityProperties securityProperties;
 
-    public JwtAuthFilter(JwtUtil jwtUtil, ReactiveStringRedisTemplate redisTemplate) {
+    public JwtAuthFilter(JwtUtil jwtUtil,
+                         ReactiveStringRedisTemplate redisTemplate,
+                         GatewaySecurityProperties securityProperties) {
         this.jwtUtil = jwtUtil;
         this.redisTemplate = redisTemplate;
+        this.securityProperties = securityProperties;
     }
 
     @Override
@@ -133,7 +110,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isWhiteListed(String path, String method) {
-        return WHITE_LIST.stream().anyMatch(entry -> {
+        return securityProperties.getWhitelist().stream().anyMatch(entry -> {
             int idx = entry.indexOf(':');
             if (idx < 0) {
                 return PATH_MATCHER.match(entry, path);
@@ -145,10 +122,10 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private boolean requiresAdmin(String method, String path) {
-        if (ADMIN_PREFIX_PATTERNS.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path))) {
+        if (securityProperties.getAdminPrefixPatterns().stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path))) {
             return true;
         }
-        return ADMIN_ONLY_PATTERNS.stream().anyMatch(entry -> {
+        return securityProperties.getAdminOnlyPatterns().stream().anyMatch(entry -> {
             int idx = entry.indexOf(':');
             if (idx < 0) {
                 return PATH_MATCHER.match(entry, path);
@@ -179,7 +156,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private String extractToken(ServerHttpRequest request) {
         String authHeader = request.getHeaders().getFirst("Authorization");
-        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+        if (authHeader == null || authHeader.length() < BEARER_PREFIX.length()
+                || !authHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
             return null;
         }
         return authHeader.substring(BEARER_PREFIX.length());
