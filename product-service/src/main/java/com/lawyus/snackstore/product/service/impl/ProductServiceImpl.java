@@ -2,6 +2,7 @@ package com.lawyus.snackstore.product.service.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -103,7 +104,7 @@ public class ProductServiceImpl implements ProductService {
         ProductQueryDTO queryDTO = new ProductQueryDTO();
         queryDTO.setKeyword(searchDTO.getKeyword());
         queryDTO.setCategoryId(searchDTO.getCategoryId());
-        queryDTO.setStatus(searchDTO.getStatus());
+        queryDTO.setStatus(searchDTO.getStatus() != null ? searchDTO.getStatus() : 1);
         queryDTO.setMinPrice(searchDTO.getMinPrice());
         queryDTO.setMaxPrice(searchDTO.getMaxPrice());
         queryDTO.setPageNum(searchDTO.getPageNum());
@@ -118,7 +119,13 @@ public class ProductServiceImpl implements ProductService {
     public List<ProductVO> getProductListByIds(List<Long> idList) {
         List<Product> products = productMapper.selectByIds(idList);
         Map<Long, ProductCategoryVO> categoryMap = getCategoryMap();
-        return products.stream().map(p -> convertToVO(p, categoryMap)).toList();
+        Map<Long, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity(), (a, b) -> a));
+        return idList.stream()
+                .map(productMap::get)
+                .filter(Objects::nonNull)
+                .map(p -> convertToVO(p, categoryMap))
+                .toList();
     }
 
     @Override

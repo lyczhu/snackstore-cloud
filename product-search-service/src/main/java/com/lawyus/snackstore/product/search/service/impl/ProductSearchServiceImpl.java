@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
@@ -44,7 +43,6 @@ public class ProductSearchServiceImpl implements ProductSearchService {
     private static final Logger log = LoggerFactory.getLogger(ProductSearchServiceImpl.class);
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("price", "createdAt", "id");
     private static final long MAX_FROM = 10000;
-    private static final Pattern ES_SPECIAL_CHARS = Pattern.compile("([+\\-=&|!(){}\\[\\]^\"~*?:\\\\/])");
 
     private final ElasticsearchOperations elasticsearchOperations;
     private final ProductDataClient productDataClient;
@@ -146,19 +144,11 @@ public class ProductSearchServiceImpl implements ProductSearchService {
         }
     }
 
-    private String escapeKeyword(String keyword) {
-        if (keyword == null) {
-            return null;
-        }
-        return ES_SPECIAL_CHARS.matcher(keyword).replaceAll("\\\\$1");
-    }
-
     private Query buildQuery(ProductSearchDTO dto) {
         List<Query> mustQueries = new ArrayList<>();
         if (StringUtils.hasText(dto.getKeyword())) {
-            String escaped = escapeKeyword(dto.getKeyword());
             mustQueries.add(Query.of(q -> q.multiMatch(
-                    mm -> mm.fields("name", "description").query(escaped))));
+                    mm -> mm.fields("name", "description").query(dto.getKeyword()))));
         }
 
         List<Query> filterQueries = new ArrayList<>();
@@ -166,10 +156,10 @@ public class ProductSearchServiceImpl implements ProductSearchService {
             filterQueries.add(Query.of(
                     q -> q.term(t -> t.field("categoryId").value(dto.getCategoryId()))));
         }
-        if (dto.getStatus() != null) {
-            filterQueries.add(Query.of(
-                    q -> q.term(t -> t.field("status").value(dto.getStatus()))));
-        }
+        // 默认只返回上架商品，避免下架商品出现在搜索结果
+        int status = dto.getStatus() != null ? dto.getStatus() : 1;
+        filterQueries.add(Query.of(
+                q -> q.term(t -> t.field("status").value(status))));
         if (dto.getMinPrice() != null || dto.getMaxPrice() != null) {
             filterQueries.add(buildPriceRangeQuery(dto));
         }

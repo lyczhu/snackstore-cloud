@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     public Result<Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         BindingResult bindingResult = e.getBindingResult();
-        String message = Objects.requireNonNull(bindingResult.getFieldError()).getDefaultMessage();
+        String message = firstValidationMessage(bindingResult);
         log.warn("参数验证失败: {}", message);
         return Result.validateFailed(message);
     }
@@ -56,9 +56,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = BindException.class)
     public Result<Object> handleBindException(BindException e) {
         BindingResult bindingResult = e.getBindingResult();
-        String message = Objects.requireNonNull(bindingResult.getFieldError()).getDefaultMessage();
+        String message = firstValidationMessage(bindingResult);
         log.warn("参数绑定失败: {}", message);
         return Result.validateFailed(message);
+    }
+
+    private String firstValidationMessage(BindingResult bindingResult) {
+        return bindingResult.getFieldErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage())
+                .orElseGet(() -> bindingResult.getAllErrors().stream()
+                        .findFirst()
+                        .map(error -> error.getDefaultMessage())
+                        .orElse("参数校验失败"));
     }
 
     /**

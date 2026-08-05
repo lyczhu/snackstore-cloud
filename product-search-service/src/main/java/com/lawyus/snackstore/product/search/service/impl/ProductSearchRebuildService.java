@@ -43,7 +43,11 @@ public class ProductSearchRebuildService {
     @Scheduled(cron = "${product-search.rebuild.cron:0 0 3 * * *}")
     public void scheduledRebuild() {
         log.info("开始定时全量重建ES索引");
-        rebuildAll();
+        try {
+            rebuildAll();
+        } catch (Exception e) {
+            log.error("定时全量重建ES索引失败", e);
+        }
     }
 
     public void rebuildAll() {
@@ -76,6 +80,7 @@ public class ProductSearchRebuildService {
             log.info("ES索引全量重建完成: 共{}条, 耗时{}ms", savedCount, System.currentTimeMillis() - startTime);
         } catch (Exception e) {
             log.error("ES索引全量重建失败", e);
+            throw new IllegalStateException("ES索引全量重建失败", e);
         } finally {
             rebuilding.set(false);
         }
