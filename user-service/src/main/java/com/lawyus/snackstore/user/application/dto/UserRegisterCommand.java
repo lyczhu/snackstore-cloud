@@ -2,6 +2,7 @@ package com.lawyus.snackstore.user.application.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,5 +18,6 @@ public class UserRegisterCommand {
     private String code;
     
     @NotBlank(message = "密码不能为空")
+    @Size(min = 6, max = 64, message = "密码长度须为6-64位")
     private String password;
 }

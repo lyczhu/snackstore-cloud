@@ -1,19 +1,18 @@
 package com.lawyus.snackstore.user.exception.handler;
 
-import com.lawyus.snackstore.common.response.Result;
-import com.lawyus.snackstore.common.response.ResultCode;
-import com.lawyus.snackstore.user.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Objects;
+import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.common.response.ResultCode;
+import com.lawyus.snackstore.user.exception.BusinessException;
 
 /**
  * 全局异常处理器
@@ -44,7 +43,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     public Result<Object> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         BindingResult bindingResult = e.getBindingResult();
-        String message = Objects.requireNonNull(bindingResult.getFieldError()).getDefaultMessage();
+        String message = firstValidationMessage(bindingResult);
         log.warn("参数验证失败: {}", message);
         return Result.validateFailed(message);
     }
@@ -58,9 +57,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(value = BindException.class)
     public Result<Object> handleBindException(BindException e) {
         BindingResult bindingResult = e.getBindingResult();
-        String message = Objects.requireNonNull(bindingResult.getFieldError()).getDefaultMessage();
+        String message = firstValidationMessage(bindingResult);
         log.warn("参数绑定失败: {}", message);
         return Result.validateFailed(message);
+    }
+
+    private String firstValidationMessage(BindingResult bindingResult) {
+        return bindingResult.getFieldErrors().stream()
+                .findFirst()
+                .map(error -> error.getDefaultMessage())
+                .orElseGet(() -> bindingResult.getAllErrors().stream()
+                        .findFirst()
+                        .map(error -> error.getDefaultMessage())
+                        .orElse("参数校验失败"));
     }
 
     /**

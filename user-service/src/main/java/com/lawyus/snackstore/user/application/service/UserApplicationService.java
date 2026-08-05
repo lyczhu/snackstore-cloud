@@ -17,6 +17,8 @@ public interface UserApplicationService {
 
     LoginViewVO adminLogin(UserLoginCommand command);
 
+    void logout(Long userId);
+
     UserViewVO getUserById(Long id);
 
     UserViewVO updateUser(Long id, UserUpdateCommand command);

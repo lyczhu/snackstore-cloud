@@ -1,6 +1,7 @@
 package com.lawyus.snackstore.user.infrastructure.persistence.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.lawyus.snackstore.user.domain.address.model.entity.Address;
 import com.lawyus.snackstore.user.domain.address.repository.AddressRepository;
 import com.lawyus.snackstore.user.domain.common.event.DomainEventPublisher;
@@ -65,12 +66,27 @@ public class AddressRepositoryImpl implements AddressRepository {
     }
 
     @Override
-    public List<Address> findDefaultByUserId(Long userId) {
+    public Optional<Address> findLatestByUserId(Long userId) {
         LambdaQueryWrapper<AddressDO> wrapper = new LambdaQueryWrapper<AddressDO>()
                 .eq(AddressDO::getUserId, userId)
-                .eq(AddressDO::getIsDefault, 1);
-        List<AddressDO> addressDOs = addressMapper.selectList(wrapper);
-        return addressDOs.stream().map(AddressConverter::toDomain).toList();
+                .orderByDesc(AddressDO::getCreatedAt)
+                .last("LIMIT 1");
+        AddressDO addressDO = addressMapper.selectOne(wrapper);
+        return Optional.ofNullable(addressDO).map(AddressConverter::toDomain);
+    }
+
+    @Override
+    public long countByUserId(Long userId) {
+        return addressMapper.selectCount(
+                new LambdaQueryWrapper<AddressDO>().eq(AddressDO::getUserId, userId));
+    }
+
+    @Override
+    public void clearDefaultsByUserId(Long userId) {
+        addressMapper.update(null, new LambdaUpdateWrapper<AddressDO>()
+                .eq(AddressDO::getUserId, userId)
+                .eq(AddressDO::getIsDefault, 1)
+                .set(AddressDO::getIsDefault, 0));
     }
 
     @Override

@@ -15,7 +15,11 @@ public interface AddressRepository {
 
     Optional<Address> findByIdAndUserId(Long id, Long userId);
 
-    List<Address> findDefaultByUserId(Long userId);
+    Optional<Address> findLatestByUserId(Long userId);
+
+    long countByUserId(Long userId);
+
+    void clearDefaultsByUserId(Long userId);
 
     void deleteById(Long id);
 

@@ -39,4 +39,10 @@ public class AuthController {
     public Result<LoginViewVO> adminLogin(@Valid @RequestBody UserLoginCommand command) {
         return Result.success(userApplicationService.adminLogin(command));
     }
+
+    @PostMapping("/logout")
+    public Result<Void> logout(@RequestHeader("X-User-Id") Long userId) {
+        userApplicationService.logout(userId);
+        return Result.success(null);
+    }
 }

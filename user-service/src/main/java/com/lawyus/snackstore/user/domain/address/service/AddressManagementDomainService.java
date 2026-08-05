@@ -13,6 +13,8 @@ import java.util.List;
 @Slf4j
 public class AddressManagementDomainService {
 
+    private static final int MAX_ADDRESSES_PER_USER = 20;
+
     private final AddressRepository addressRepository;
     private final DomainEventPublisher eventPublisher;
 
@@ -24,8 +26,11 @@ public class AddressManagementDomainService {
 
     public Address createAddress(Long userId, ReceiverInfo receiverInfo, AddressDetail addressDetail,
                                   boolean isDefault) {
+        if (addressRepository.countByUserId(userId) >= MAX_ADDRESSES_PER_USER) {
+            throw new IllegalArgumentException("地址数量已达上限（" + MAX_ADDRESSES_PER_USER + "个）");
+        }
         if (isDefault) {
-            clearExistingDefaults(userId);
+            addressRepository.clearDefaultsByUserId(userId);
         }
 
         Address address = Address.create(userId, receiverInfo, addressDetail, isDefault);
@@ -40,22 +45,28 @@ public class AddressManagementDomainService {
                                   AddressDetail addressDetail, Boolean isDefault) {
         Address address = findAddressBelongsToUser(addressId, userId);
         if (isDefault != null && isDefault) {
-            clearExistingDefaults(userId);
+            addressRepository.clearDefaultsByUserId(userId);
         }
         address.updateInfo(receiverInfo, addressDetail, isDefault);
         return addressRepository.save(address);
     }
 
     public void deleteAddress(Long addressId, Long userId) {
-        if (!addressRepository.existsByIdAndUserId(addressId, userId)) {
-            throw BusinessExceptionEnum.DATA_NOT_FOUND.getException("地址不存在");
-        }
+        Address address = findAddressBelongsToUser(addressId, userId);
+        boolean wasDefault = address.isDefault();
         addressRepository.deleteById(addressId);
+        if (wasDefault) {
+            addressRepository.findLatestByUserId(userId)
+                    .ifPresent(latest -> {
+                        latest.setAsDefault();
+                        addressRepository.save(latest);
+                    });
+        }
     }
 
     public Address setDefaultAddress(Long addressId, Long userId) {
         Address address = findAddressBelongsToUser(addressId, userId);
-        clearExistingDefaults(userId);
+        addressRepository.clearDefaultsByUserId(userId);
         address.setAsDefault();
         return addressRepository.save(address);
     }
@@ -66,14 +77,6 @@ public class AddressManagementDomainService {
 
     public Address getAddressByIdAndUserId(Long addressId, Long userId) {
         return findAddressBelongsToUser(addressId, userId);
-    }
-
-    private void clearExistingDefaults(Long userId) {
-        List<Address> defaults = addressRepository.findDefaultByUserId(userId);
-        for (Address addr : defaults) {
-            addr.unsetDefault();
-            addressRepository.save(addr);
-        }
     }
 
     private Address findAddressBelongsToUser(Long addressId, Long userId) {

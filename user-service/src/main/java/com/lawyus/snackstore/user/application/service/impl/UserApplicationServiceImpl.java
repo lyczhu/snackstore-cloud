@@ -7,6 +7,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.user.application.converter.UserViewConverter;
@@ -75,8 +77,20 @@ public class UserApplicationServiceImpl implements UserApplicationService {
         User user = userAuthenticationDomainService.register(phone, command.getPassword(),
                 command.getCode(), cachedCode);
 
-        verificationCodePort.invalidate(command.getPhone());
+        // 验证码仅在事务提交成功后消费，注册失败(事务回滚)时保留，用户可直接重试
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                verificationCodePort.invalidate(command.getPhone());
+            }
+        });
         return buildLoginViewVO(user);
+    }
+
+    @Override
+    public void logout(Long userId) {
+        tokenPort.revoke(userId);
+        log.info("用户已登出，会话已吊销: userId={}", userId);
     }
 
     @Override
