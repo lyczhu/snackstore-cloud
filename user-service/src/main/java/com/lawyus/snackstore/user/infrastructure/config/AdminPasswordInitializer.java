@@ -1,6 +1,7 @@
 package com.lawyus.snackstore.user.infrastructure.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.lawyus.snackstore.user.domain.user.model.valueobject.UserRole;
 import com.lawyus.snackstore.user.infrastructure.persistence.do_.UserDO;
 import com.lawyus.snackstore.user.infrastructure.persistence.mapper.UserMapper;
 import org.slf4j.Logger;
@@ -46,7 +47,7 @@ public class AdminPasswordInitializer implements ApplicationRunner {
 
         UserDO admin = userMapper.selectOne(new LambdaQueryWrapper<UserDO>()
                 .eq(UserDO::getPhone, adminPhone)
-                .eq(UserDO::getRole, "ADMIN"));
+                .eq(UserDO::getRole, UserRole.ADMIN.getCode()));
         if (admin == null) {
             log.warn("未找到管理员账号，跳过口令初始化: phone={}", adminPhone);
             return;

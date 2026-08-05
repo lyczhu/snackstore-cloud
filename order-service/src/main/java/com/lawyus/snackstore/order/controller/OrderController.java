@@ -2,8 +2,10 @@ package com.lawyus.snackstore.order.controller;
 
 import org.springframework.web.bind.annotation.*;
 
+import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.order.constant.OrderStatusConstants;
 import com.lawyus.snackstore.order.model.dto.OrderCreateDTO;
 import com.lawyus.snackstore.order.model.dto.OrderQueryDTO;
 import com.lawyus.snackstore.order.model.vo.OrderVO;
@@ -22,19 +24,19 @@ public class OrderController {
     }
 
     @PostMapping
-    public Result<OrderVO> createOrder(@RequestHeader("X-User-Id") Long userId,
+    public Result<OrderVO> createOrder(@RequestHeader(AuthConstants.HEADER_USER_ID) Long userId,
                                        @Valid @RequestBody OrderCreateDTO dto) {
         return Result.success(orderService.createOrder(userId, dto));
     }
 
     @GetMapping("/{id}")
     public Result<OrderVO> getOrderDetail(@PathVariable Long id,
-                                          @RequestHeader("X-User-Id") Long userId) {
+                                          @RequestHeader(AuthConstants.HEADER_USER_ID) Long userId) {
         return Result.success(orderService.getOrderDetail(id, userId));
     }
 
     @GetMapping
-    public Result<PageResult<OrderVO>> getOrderList(@RequestHeader("X-User-Id") Long userId,
+    public Result<PageResult<OrderVO>> getOrderList(@RequestHeader(AuthConstants.HEADER_USER_ID) Long userId,
                                                     @Valid OrderQueryDTO queryDTO) {
         queryDTO.setUserId(userId);
         return Result.success(orderService.getOrderList(queryDTO));
@@ -42,12 +44,12 @@ public class OrderController {
 
     @PatchMapping("/{id}/status")
     public Result<Void> updateOrderStatus(@PathVariable Long id,
-                                         @RequestHeader("X-User-Id") Long userId,
+                                         @RequestHeader(AuthConstants.HEADER_USER_ID) Long userId,
                                          @RequestParam Integer status) {
         // status: 1=已支付(COMPLETED) 2=已取消(CANCELLED)
-        if (status != null && status == 1) {
+        if (status != null && status == OrderStatusConstants.COMPLETED) {
             orderService.payOrder(id, userId);
-        } else if (status != null && status == 2) {
+        } else if (status != null && status == OrderStatusConstants.CANCELLED) {
             orderService.cancelOrder(id, userId);
         } else {
             throw new IllegalArgumentException("不支持的订单状态值: " + status);
@@ -57,7 +59,7 @@ public class OrderController {
 
     @DeleteMapping("/{id}")
     public Result<Void> deleteOrder(@PathVariable Long id,
-                                    @RequestHeader("X-User-Id") Long userId) {
+                                    @RequestHeader(AuthConstants.HEADER_USER_ID) Long userId) {
         orderService.deleteOrder(id, userId);
         return Result.success(null);
     }

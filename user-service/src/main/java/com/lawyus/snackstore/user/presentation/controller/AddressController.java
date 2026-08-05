@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.user.presentation.controller;
 
+import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.user.application.dto.AddressCreateCommand;
 import com.lawyus.snackstore.user.application.dto.AddressUpdateCommand;
@@ -23,7 +24,7 @@ public class AddressController {
 
     @GetMapping
     public Result<List<AddressViewVO>> getAddressList(@PathVariable("userId") Long userId,
-                                                      @RequestHeader("X-User-Id") Long authUserId) {
+                                                      @RequestHeader(AuthConstants.HEADER_USER_ID) Long authUserId) {
         assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.getAddressList(userId));
     }
@@ -31,14 +32,14 @@ public class AddressController {
     @GetMapping("/{id}")
     public Result<AddressViewVO> getAddressById(@PathVariable("userId") Long userId,
                                                  @PathVariable Long id,
-                                                 @RequestHeader("X-User-Id") Long authUserId) {
+                                                 @RequestHeader(AuthConstants.HEADER_USER_ID) Long authUserId) {
         assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.getAddressById(id, userId));
     }
 
     @PostMapping
     public Result<AddressViewVO> createAddress(@PathVariable("userId") Long userId,
-                                                @RequestHeader("X-User-Id") Long authUserId,
+                                                @RequestHeader(AuthConstants.HEADER_USER_ID) Long authUserId,
                                                 @Valid @RequestBody AddressCreateCommand command) {
         assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.createAddress(userId, command));
@@ -47,7 +48,7 @@ public class AddressController {
     @PutMapping("/{id}")
     public Result<AddressViewVO> updateAddress(@PathVariable("userId") Long userId,
                                                 @PathVariable Long id,
-                                                @RequestHeader("X-User-Id") Long authUserId,
+                                                @RequestHeader(AuthConstants.HEADER_USER_ID) Long authUserId,
                                                 @Valid @RequestBody AddressUpdateCommand command) {
         assertOwner(userId, authUserId);
         return Result.success(addressApplicationService.updateAddress(id, userId, command));
@@ -56,7 +57,7 @@ public class AddressController {
     @DeleteMapping("/{id}")
     public Result<Void> deleteAddress(@PathVariable("userId") Long userId,
                                       @PathVariable Long id,
-                                      @RequestHeader("X-User-Id") Long authUserId) {
+                                      @RequestHeader(AuthConstants.HEADER_USER_ID) Long authUserId) {
         assertOwner(userId, authUserId);
         addressApplicationService.deleteAddress(id, userId);
         return Result.success(null);
@@ -65,7 +66,7 @@ public class AddressController {
     @PatchMapping("/{id}/default")
     public Result<Void> setDefaultAddress(@PathVariable("userId") Long userId,
                                           @PathVariable Long id,
-                                          @RequestHeader("X-User-Id") Long authUserId) {
+                                          @RequestHeader(AuthConstants.HEADER_USER_ID) Long authUserId) {
         assertOwner(userId, authUserId);
         addressApplicationService.setDefaultAddress(id, userId);
         return Result.success(null);

@@ -1,7 +1,9 @@
 package com.lawyus.snackstore.product.controller;
 
+import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.product.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.product.model.dto.BatchStockDTO;
 import com.lawyus.snackstore.product.model.dto.ProductDTO;
 import com.lawyus.snackstore.product.model.dto.ProductQueryDTO;
@@ -39,23 +41,33 @@ public class ProductController {
     }
 
     @PostMapping
-    public Result<ProductVO> createProduct(@Valid @RequestBody ProductDTO dto) {
+    public Result<ProductVO> createProduct(@Valid @RequestBody ProductDTO dto,
+                                           @RequestHeader(AuthConstants.HEADER_USER_ROLE) String role) {
+        assertAdmin(role);
         return Result.success(productService.createProduct(dto));
     }
 
     @PutMapping("/{id}")
-    public Result<ProductVO> updateProduct(@PathVariable Long id, @Valid @RequestBody ProductDTO dto) {
+    public Result<ProductVO> updateProduct(@PathVariable Long id,
+                                           @Valid @RequestBody ProductDTO dto,
+                                           @RequestHeader(AuthConstants.HEADER_USER_ROLE) String role) {
+        assertAdmin(role);
         return Result.success(productService.updateProduct(id, dto));
     }
 
     @DeleteMapping("/{id}")
-    public Result<Void> deleteProduct(@PathVariable Long id) {
+    public Result<Void> deleteProduct(@PathVariable Long id,
+                                      @RequestHeader(AuthConstants.HEADER_USER_ROLE) String role) {
+        assertAdmin(role);
         productService.deleteProduct(id);
         return Result.success(null);
     }
 
     @PatchMapping("/{id}/status")
-    public Result<Void> updateProductStatus(@PathVariable Long id, @RequestParam Integer status) {
+    public Result<Void> updateProductStatus(@PathVariable Long id,
+                                            @RequestParam Integer status,
+                                            @RequestHeader(AuthConstants.HEADER_USER_ROLE) String role) {
+        assertAdmin(role);
         productService.updateProductStatus(id, status);
         return Result.success(null);
     }
@@ -78,5 +90,11 @@ public class ProductController {
     @PostMapping("/stock/batch-rollbacks")
     public Result<Boolean> batchRollbackStock(@Valid @RequestBody BatchStockDTO batchDTO) {
         return Result.success(productService.batchRollbackStock(batchDTO));
+    }
+
+    private void assertAdmin(String role) {
+        if (!AuthConstants.ROLE_ADMIN.equalsIgnoreCase(role)) {
+            throw BusinessExceptionEnum.ACCESS_FORBIDDEN.getException("仅管理员可执行该操作");
+        }
     }
 }

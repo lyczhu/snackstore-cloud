@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.lawyus.snackstore.order.constant.OrderStatusConstants;
 import com.lawyus.snackstore.order.exception.BusinessExceptionEnum;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
@@ -35,10 +36,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class OrderServiceImpl implements OrderService {
 
-    private static final int ORDER_STATUS_PENDING = 0;
-    private static final int ORDER_STATUS_COMPLETED = 1;
-    private static final int ORDER_STATUS_CANCELLED = 2;
-
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final ProductClient productClient;
@@ -63,7 +60,7 @@ public class OrderServiceImpl implements OrderService {
         order.setUserId(userId);
         order.setOrderNo(orderNo);
         order.setTotalAmount(totalAmount);
-        order.setStatus(ORDER_STATUS_PENDING);
+        order.setStatus(OrderStatusConstants.PENDING);
         order.setReceiverName(orderDto.getReceiverName());
         order.setReceiverPhone(orderDto.getReceiverPhone());
         order.setReceiverAddress(orderDto.getReceiverAddress());
@@ -169,8 +166,8 @@ public class OrderServiceImpl implements OrderService {
         int rows = orderMapper.update(null, new LambdaUpdateWrapper<Order>()
                 .eq(Order::getId, id)
                 .eq(Order::getUserId, userId)
-                .eq(Order::getStatus, ORDER_STATUS_PENDING)
-                .set(Order::getStatus, ORDER_STATUS_COMPLETED)
+                .eq(Order::getStatus, OrderStatusConstants.PENDING)
+                .set(Order::getStatus, OrderStatusConstants.COMPLETED)
                 .set(Order::getPayTime, LocalDateTime.now()));
         if (rows == 0) {
             Order order = orderMapper.selectOne(
@@ -197,8 +194,8 @@ public class OrderServiceImpl implements OrderService {
         int rows = orderMapper.update(null, new LambdaUpdateWrapper<Order>()
                 .eq(Order::getId, id)
                 .eq(Order::getUserId, userId)
-                .eq(Order::getStatus, ORDER_STATUS_PENDING)
-                .set(Order::getStatus, ORDER_STATUS_CANCELLED));
+                .eq(Order::getStatus, OrderStatusConstants.PENDING)
+                .set(Order::getStatus, OrderStatusConstants.CANCELLED));
         if (rows == 0) {
             throw BusinessExceptionEnum.ORDER_CANNOT_CANCEL.getException();
         }
@@ -219,7 +216,7 @@ public class OrderServiceImpl implements OrderService {
         int rows = orderMapper.delete(new LambdaQueryWrapper<Order>()
                 .eq(Order::getId, id)
                 .eq(Order::getUserId, userId)
-                .eq(Order::getStatus, ORDER_STATUS_CANCELLED));
+                .eq(Order::getStatus, OrderStatusConstants.CANCELLED));
         if (rows == 0) {
             Order order = orderMapper.selectOne(
                     new LambdaQueryWrapper<Order>()

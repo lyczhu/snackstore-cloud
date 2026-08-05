@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.user.presentation.controller;
 
+import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.user.application.dto.SmsCodeSendCommand;
 import com.lawyus.snackstore.user.application.dto.UserRegisterCommand;
@@ -41,7 +42,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public Result<Void> logout(@RequestHeader("X-User-Id") Long userId) {
+    public Result<Void> logout(@RequestHeader(AuthConstants.HEADER_USER_ID) Long userId) {
         userApplicationService.logout(userId);
         return Result.success(null);
     }

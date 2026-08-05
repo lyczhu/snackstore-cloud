@@ -17,6 +17,7 @@ import org.springframework.web.server.ServerWebExchange;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.common.response.ResultCode;
 import com.lawyus.snackstore.common.util.JwtUtil;
@@ -35,9 +36,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String HEADER_USER_ID = "X-User-Id";
-    private static final String HEADER_USERNAME = "X-Username";
-    private static final String HEADER_USER_ROLE = "X-User-Role";
     private static final String SESSION_KEY_PREFIX = "token:";
 
     private final JwtUtil jwtUtil;
@@ -81,9 +79,9 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             String username = claims.get("username", String.class);
 
             ServerHttpRequest modifiedRequest = request.mutate()
-                    .header(HEADER_USER_ID, String.valueOf(userId))
-                    .header(HEADER_USERNAME, username)
-                    .header(HEADER_USER_ROLE, role)
+                    .header(AuthConstants.HEADER_USER_ID, String.valueOf(userId))
+                    .header(AuthConstants.HEADER_USERNAME, username)
+                    .header(AuthConstants.HEADER_USER_ROLE, role)
                     .build();
             ServerWebExchange mutatedExchange = exchange.mutate().request(modifiedRequest).build();
 
@@ -137,7 +135,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isAdmin(String role) {
-        return "admin".equalsIgnoreCase(role);
+        return AuthConstants.ROLE_ADMIN.equalsIgnoreCase(role);
     }
 
     /**

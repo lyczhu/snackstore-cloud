@@ -129,6 +129,7 @@ gateway:
       - "POST:/api/products/*/stock/rollbacks"
       - "POST:/api/products/stock/batch-deductions"
       - "POST:/api/products/stock/batch-rollbacks"
+      - "GET:/api/statistics/**"
 
 springdoc:
   swagger-ui:

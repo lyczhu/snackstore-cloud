@@ -4,7 +4,8 @@ import com.lawyus.snackstore.common.response.ResultCode;
 
 public enum BusinessExceptionEnum {
 
-    STATISTICS_SERVICE_ERROR(ResultCode.STATISTICS_SERVICE_ERROR);
+    STATISTICS_SERVICE_ERROR(ResultCode.STATISTICS_SERVICE_ERROR),
+    ACCESS_FORBIDDEN(ResultCode.FORBIDDEN);
 
     private final ResultCode resultCode;
 

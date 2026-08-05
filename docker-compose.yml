@@ -46,7 +46,7 @@ services:
       - nacos-logs:/home/nacos/logs
       - nacos-data:/home/nacos/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/actuator"]
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/v3/admin/core/state/readiness"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -147,7 +147,8 @@ services:
       dockerfile: Dockerfile
     container_name: snackstore-user-service
     ports:
-      - "8081:8081"
+      # 仅绑定本机，防止绕过网关直接访问（下游服务信任 X-User-Id 头，不校验 JWT）
+      - "127.0.0.1:8081:8081"
     environment:
       SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
       SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
@@ -180,7 +181,7 @@ services:
       dockerfile: Dockerfile
     container_name: snackstore-product-service
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     environment:
       SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
       SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
@@ -214,7 +215,7 @@ services:
       dockerfile: Dockerfile
     container_name: snackstore-product-search-service
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     environment:
       SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
       SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
@@ -242,7 +243,7 @@ services:
       dockerfile: Dockerfile
     container_name: snackstore-order-service
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     environment:
       SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
       SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848
@@ -273,7 +274,7 @@ services:
       dockerfile: Dockerfile
     container_name: snackstore-statistics-service
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     environment:
       SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
       SPRING_CLOUD_NACOS_CONFIG_SERVER_ADDR: nacos:8848

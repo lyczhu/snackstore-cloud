@@ -32,6 +32,7 @@ public enum BusinessExceptionEnum {
 
     DATA_NOT_FOUND(ResultCode.DATA_NOT_FOUND),
     DATA_ALREADY_EXISTS(ResultCode.DATA_ALREADY_EXISTS),
+    ACCESS_FORBIDDEN(ResultCode.FORBIDDEN),
 
     SYSTEM_ERROR(ResultCode.INTERNAL_SERVER_ERROR);
 

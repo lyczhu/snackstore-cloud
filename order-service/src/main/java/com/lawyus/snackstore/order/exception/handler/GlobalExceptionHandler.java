@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.order.exception.handler;
 
+import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.common.response.ResultCode;
 import com.lawyus.snackstore.order.exception.BusinessException;
@@ -92,7 +93,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = MissingRequestHeaderException.class)
     public Result<Object> handleMissingRequestHeader(MissingRequestHeaderException e) {
-        if ("X-User-Id".equals(e.getHeaderName())) {
+        if (AuthConstants.HEADER_USER_ID.equals(e.getHeaderName())) {
             log.warn("缺少身份标识请求头: {}", e.getMessage());
             return Result.forbidden();
         }
