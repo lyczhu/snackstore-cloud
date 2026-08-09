@@ -1,19 +1,20 @@
 package com.lawyus.snackstore.order.exception.handler;
 
-import com.lawyus.snackstore.common.constant.AuthConstants;
-import com.lawyus.snackstore.common.response.Result;
-import com.lawyus.snackstore.common.response.ResultCode;
-import com.lawyus.snackstore.order.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Objects;
+import com.lawyus.snackstore.common.constant.AuthConstants;
+import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.common.response.ResultCode;
+import com.lawyus.snackstore.order.exception.BusinessException;
+
+import jakarta.validation.ConstraintViolationException;
 
 /**
  * 全局异常处理器
@@ -71,6 +72,18 @@ public class GlobalExceptionHandler {
                         .findFirst()
                         .map(error -> error.getDefaultMessage())
                         .orElse("参数校验失败"));
+    }
+
+    /**
+     * 处理方法参数约束校验异常(@Validated + @Min/@Max 等)
+     *
+     * @param e 约束校验异常
+     * @return Result
+     */
+    @ExceptionHandler(value = ConstraintViolationException.class)
+    public Result<Object> handleConstraintViolationException(ConstraintViolationException e) {
+        log.warn("参数约束校验失败: {}", e.getMessage());
+        return Result.validateFailed("请求参数错误");
     }
 
     /**
