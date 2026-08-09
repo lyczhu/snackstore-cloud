@@ -7,6 +7,7 @@ import com.lawyus.snackstore.user.domain.user.model.valueobject.Password;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.Phone;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.UserRole;
 import com.lawyus.snackstore.user.domain.user.port.PasswordEncoder;
+import com.lawyus.snackstore.user.domain.user.port.VerificationCodePort;
 import com.lawyus.snackstore.user.domain.user.repository.UserRepository;
 
 import lombok.extern.slf4j.Slf4j;
@@ -17,17 +18,23 @@ public class UserAuthenticationDomainService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final DomainEventPublisher eventPublisher;
+    private final VerificationCodePort verificationCodePort;
 
     public UserAuthenticationDomainService(UserRepository userRepository,
                                            PasswordEncoder passwordEncoder,
-                                           DomainEventPublisher eventPublisher) {
+                                           DomainEventPublisher eventPublisher,
+                                           VerificationCodePort verificationCodePort) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
+        this.verificationCodePort = verificationCodePort;
     }
 
     public User register(Phone phone, String rawPassword, String smsCode, String expectedCode) {
-        validateSmsCode(smsCode, expectedCode);
+        if (verificationCodePort.isVerificationLocked(phone.getValue())) {
+            throw BusinessExceptionEnum.SMS_CODE_ERROR.getException("验证码错误次数过多，请重新获取");
+        }
+        validateSmsCode(phone, smsCode, expectedCode);
         checkPhoneNotExists(phone);
 
         Password password = Password.fromRaw(rawPassword, passwordEncoder);
@@ -61,16 +68,20 @@ public class UserAuthenticationDomainService {
     public User adminLogin(Phone phone, String rawPassword) {
         User user = login(phone, rawPassword);
         if (!user.isAdmin()) {
-            throw BusinessExceptionEnum.USER_NOT_FOUND.getException("非管理员账号");
+            // 不提示"非管理员"，避免暴露该手机号为有效账号（用户枚举）
+            log.warn("管理员登录被拒绝: 账号非管理员, phone={}", phone.getValue());
+            throw BusinessExceptionEnum.USER_NOT_FOUND.getException("用户名或密码错误");
         }
         return user;
     }
 
-    private void validateSmsCode(String smsCode, String expectedCode) {
+    private void validateSmsCode(Phone phone, String smsCode, String expectedCode) {
         if (expectedCode == null) {
             throw BusinessExceptionEnum.SMS_CODE_EXPIRED.getException();
         }
         if (!expectedCode.equals(smsCode)) {
+            long failCount = verificationCodePort.incrementVerificationFail(phone.getValue());
+            log.warn("验证码校验失败: phone={}, 累计失败次数={}", phone.getValue(), failCount);
             throw BusinessExceptionEnum.SMS_CODE_ERROR.getException();
         }
     }

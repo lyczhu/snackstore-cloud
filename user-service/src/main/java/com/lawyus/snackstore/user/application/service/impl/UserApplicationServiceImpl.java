@@ -57,14 +57,19 @@ public class UserApplicationServiceImpl implements UserApplicationService {
     }
 
     @Override
-    public void sendSmsCode(String phone) {
+    public void sendSmsCode(String phone, String clientIp) {
         Phone.of(phone);
         if (!verificationCodePort.tryAcquireSend(phone)) {
             throw BusinessExceptionEnum.SMS_SEND_TOO_FREQUENT.getException();
         }
+        if (clientIp != null && !verificationCodePort.tryAcquireSendByIp(clientIp)) {
+            log.warn("IP 发送验证码超限: ip={}", clientIp);
+            throw BusinessExceptionEnum.SMS_SEND_TOO_FREQUENT.getException("该 IP 发送验证码过于频繁，请稍后再试");
+        }
         String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
         verificationCodePort.save(phone, code, Duration.ofMinutes(codeTtlMinutes));
         smsSender.send(phone, code);
+        verificationCodePort.markSendSuccess(phone);
         log.info("验证码已发放: phone={}, ttl={}分钟", phone, codeTtlMinutes);
     }
 
@@ -77,11 +82,12 @@ public class UserApplicationServiceImpl implements UserApplicationService {
         User user = userAuthenticationDomainService.register(phone, command.getPassword(),
                 command.getCode(), cachedCode);
 
-        // 验证码仅在事务提交成功后消费，注册失败(事务回滚)时保留，用户可直接重试
+        // 验证码与失败计数仅在事务提交成功后消费/清除，注册失败(事务回滚)时保留，用户可直接重试
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 verificationCodePort.invalidate(command.getPhone());
+                verificationCodePort.resetVerificationFail(command.getPhone());
             }
         });
         return buildLoginViewVO(user);

@@ -13,6 +13,8 @@ public class RedisVerificationCodePort implements VerificationCodePort {
     private static final String SMS_CODE_PREFIX = "sms:code:";
     private static final String SMS_SEND_LIMIT_PREFIX = "sms:send-limit:";
     private static final String SMS_SEND_DAILY_PREFIX = "sms:send-daily:";
+    private static final String SMS_VERIFY_FAIL_PREFIX = "sms:verify-fail:";
+    private static final String SMS_IP_LIMIT_PREFIX = "sms:ip-limit:";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -21,6 +23,15 @@ public class RedisVerificationCodePort implements VerificationCodePort {
 
     @Value("${user.sms.daily-max:10}")
     private long dailyMax;
+
+    @Value("${user.sms.max-fail:5}")
+    private long maxFail;
+
+    @Value("${user.sms.fail-lock-minutes:30}")
+    private long failLockMinutes;
+
+    @Value("${user.sms.ip-hourly-max:10}")
+    private long ipHourlyMax;
 
     public RedisVerificationCodePort(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
@@ -43,17 +54,60 @@ public class RedisVerificationCodePort implements VerificationCodePort {
 
     @Override
     public boolean tryAcquireSend(String phone) {
+        String limitKey = SMS_SEND_LIMIT_PREFIX + phone;
+        Boolean acquired = redisTemplate.opsForValue()
+                .setIfAbsent(limitKey, "1", Duration.ofSeconds(sendIntervalSeconds));
+        if (!Boolean.TRUE.equals(acquired)) {
+            return false;
+        }
+        String dailyKey = SMS_SEND_DAILY_PREFIX + phone;
+        String dailyCount = redisTemplate.opsForValue().get(dailyKey);
+        if (dailyCount != null && Long.parseLong(dailyCount) >= dailyMax) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void markSendSuccess(String phone) {
         String dailyKey = SMS_SEND_DAILY_PREFIX + phone;
         Long dailyCount = redisTemplate.opsForValue().increment(dailyKey);
         if (dailyCount != null && dailyCount == 1) {
             redisTemplate.expire(dailyKey, Duration.ofDays(1));
         }
-        if (dailyCount != null && dailyCount > dailyMax) {
-            return false;
+    }
+
+    @Override
+    public boolean tryAcquireSendByIp(String ip) {
+        String ipKey = SMS_IP_LIMIT_PREFIX + ip;
+        Long count = redisTemplate.opsForValue().increment(ipKey);
+        if (count != null && count == 1) {
+            redisTemplate.expire(ipKey, Duration.ofHours(1));
         }
-        String limitKey = SMS_SEND_LIMIT_PREFIX + phone;
-        Boolean acquired = redisTemplate.opsForValue()
-                .setIfAbsent(limitKey, "1", Duration.ofSeconds(sendIntervalSeconds));
-        return Boolean.TRUE.equals(acquired);
+        return count == null || count <= ipHourlyMax;
+    }
+
+    @Override
+    public boolean isVerificationLocked(String phone) {
+        String failCount = redisTemplate.opsForValue().get(SMS_VERIFY_FAIL_PREFIX + phone);
+        return failCount != null && Long.parseLong(failCount) >= maxFail;
+    }
+
+    @Override
+    public long incrementVerificationFail(String phone) {
+        String failKey = SMS_VERIFY_FAIL_PREFIX + phone;
+        Long count = redisTemplate.opsForValue().increment(failKey);
+        if (count != null && count == 1) {
+            redisTemplate.expire(failKey, Duration.ofMinutes(failLockMinutes));
+        }
+        if (count != null && count >= maxFail) {
+            invalidate(phone);
+        }
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public void resetVerificationFail(String phone) {
+        redisTemplate.delete(SMS_VERIFY_FAIL_PREFIX + phone);
     }
 }

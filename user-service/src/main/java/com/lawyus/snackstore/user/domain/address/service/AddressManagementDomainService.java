@@ -44,11 +44,23 @@ public class AddressManagementDomainService {
     public Address updateAddress(Long addressId, Long userId, ReceiverInfo receiverInfo,
                                   AddressDetail addressDetail, Boolean isDefault) {
         Address address = findAddressBelongsToUser(addressId, userId);
+        boolean wasDefault = address.isDefault();
         if (isDefault != null && isDefault) {
             addressRepository.clearDefaultsByUserId(userId);
         }
         address.updateInfo(receiverInfo, addressDetail, isDefault);
-        return addressRepository.save(address);
+        Address saved = addressRepository.save(address);
+
+        // 原默认地址被置为非默认后，若用户已无默认地址，自动提升最新一条（与删除路径行为一致）
+        if (Boolean.FALSE.equals(isDefault) && wasDefault
+                && getUserAddresses(userId).stream().noneMatch(Address::isDefault)) {
+            addressRepository.findLatestByUserId(userId)
+                    .ifPresent(latest -> {
+                        latest.setAsDefault();
+                        addressRepository.save(latest);
+                    });
+        }
+        return saved;
     }
 
     public void deleteAddress(Long addressId, Long userId) {

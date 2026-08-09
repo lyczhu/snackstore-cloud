@@ -7,6 +7,7 @@ import com.lawyus.snackstore.user.domain.address.repository.AddressRepository;
 import com.lawyus.snackstore.user.domain.address.service.AddressManagementDomainService;
 import com.lawyus.snackstore.user.domain.common.event.DomainEventPublisher;
 import com.lawyus.snackstore.user.domain.user.port.PasswordEncoder;
+import com.lawyus.snackstore.user.domain.user.port.VerificationCodePort;
 import com.lawyus.snackstore.user.domain.user.repository.UserRepository;
 import com.lawyus.snackstore.user.domain.user.service.UserAuthenticationDomainService;
 import com.lawyus.snackstore.user.domain.user.service.UserManagementDomainService;
@@ -17,8 +18,9 @@ public class DomainConfig {
     @Bean
     public UserAuthenticationDomainService userAuthenticationDomainService(UserRepository userRepository,
                                                                             PasswordEncoder passwordEncoder,
-                                                                            DomainEventPublisher eventPublisher) {
-        return new UserAuthenticationDomainService(userRepository, passwordEncoder, eventPublisher);
+                                                                            DomainEventPublisher eventPublisher,
+                                                                            VerificationCodePort verificationCodePort) {
+        return new UserAuthenticationDomainService(userRepository, passwordEncoder, eventPublisher, verificationCodePort);
     }
 
     @Bean

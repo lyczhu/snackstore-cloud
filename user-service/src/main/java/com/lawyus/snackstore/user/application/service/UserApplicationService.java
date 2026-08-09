@@ -11,7 +11,7 @@ public interface UserApplicationService {
 
     LoginViewVO register(UserRegisterCommand command);
 
-    void sendSmsCode(String phone);
+    void sendSmsCode(String phone, String clientIp);
 
     LoginViewVO login(UserLoginCommand command);
 
