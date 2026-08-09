@@ -6,10 +6,10 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      # 关闭 discovery locator：所有业务路由已显式定义，避免 /{serviceId}/** 自动路由暴露 /internal/** 内部接口
       discovery:
         locator:
-          enabled: true
-          lower-case-service-id: true
+          enabled: false
       routes:
         - id: user-service
           uri: lb://user-service
@@ -129,6 +129,9 @@ gateway:
       - "POST:/api/products/*/stock/rollbacks"
       - "POST:/api/products/stock/batch-deductions"
       - "POST:/api/products/stock/batch-rollbacks"
+      - "POST:/api/products/categories"
+      - "PUT:/api/products/categories/**"
+      - "DELETE:/api/products/categories/**"
       - "GET:/api/statistics/**"
 
 springdoc:

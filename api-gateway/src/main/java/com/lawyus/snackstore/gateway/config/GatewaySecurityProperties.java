@@ -41,7 +41,11 @@ public class GatewaySecurityProperties {
             "POST:/api/products/*/stock/deductions",
             "POST:/api/products/*/stock/rollbacks",
             "POST:/api/products/stock/batch-deductions",
-            "POST:/api/products/stock/batch-rollbacks"
+            "POST:/api/products/stock/batch-rollbacks",
+            "POST:/api/products/categories",
+            "PUT:/api/products/categories/**",
+            "DELETE:/api/products/categories/**",
+            "GET:/api/statistics/**"
     );
 
     public Set<String> getWhitelist() {

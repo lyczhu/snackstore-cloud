@@ -140,14 +140,16 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     /**
      * 校验会话: Redis 中 token:{userId} 必须与当前 token 一致(禁用用户已被吊销该 key)。
-     * Redis 不可用时按放行处理，避免网关整体不可用。
+     * Redis 不可用时按放行处理(fail-open)，避免网关整体不可用——期间被禁用/被踢用户的 token
+     * 仍可访问，风险已在 docs/系统审查报告.md 登记；如不能接受请在 JWT 之外增加网关级兜底。
      */
     private Mono<Boolean> validateSession(String token, Long userId) {
         return redisTemplate.opsForValue().get(SESSION_KEY_PREFIX + userId)
                 .map(token::equals)
                 .defaultIfEmpty(false)
                 .onErrorResume(e -> {
-                    log.warn("Redis会话校验异常，按放行处理: userId={}, err={}", userId, e.getMessage());
+                    log.error("[安全告警] Redis 会话校验异常，fail-open 放行，吊销检查失效: userId={}, err={}",
+                            userId, e.getMessage());
                     return Mono.just(true);
                 });
     }
