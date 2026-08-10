@@ -23,6 +23,9 @@ spring:
         spring.json.value.default.type: com.lawyus.snackstore.common.message.ProductSearchSyncMessage
         isolation.level: read_committed
       max-poll-records: 100
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     listener:
       ack-mode: MANUAL_IMMEDIATE
     topic:
