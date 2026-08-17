@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lawyus.snackstore.common.dto.ProductSearchDTO;
-import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
+import com.lawyus.snackstore.common.dto.ProductSearchItemDTO;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.product.model.entity.Product;
 import com.lawyus.snackstore.product.model.vo.ProductCategoryVO;
@@ -34,26 +34,26 @@ public class ProductInternalServiceImpl implements ProductInternalService {
     }
 
     @Override
-    public PageResult<ProductSearchSyncMessage> searchFallback(ProductSearchDTO dto) {
+    public PageResult<ProductSearchItemDTO> searchFallback(ProductSearchDTO dto) {
         PageResult<ProductVO> result = productService.searchByKeyword(dto);
         Map<Long, ProductCategoryVO> categoryMap = loadCategoryMap();
-        List<ProductSearchSyncMessage> messages = result.getData().stream()
-                .map(vo -> convertToMessage(vo, categoryMap.get(vo.getCategoryId())))
+        List<ProductSearchItemDTO> items = result.getData().stream()
+                .map(vo -> convertToItem(vo, categoryMap.get(vo.getCategoryId())))
                 .toList();
-        return PageResult.success(messages, result.getPageNum(), result.getPageSize(), result.getTotal());
+        return PageResult.success(items, result.getPageNum(), result.getPageSize(), result.getTotal());
     }
 
     @Override
-    public PageResult<ProductSearchSyncMessage> listForSearch(int pageNum, int pageSize) {
+    public PageResult<ProductSearchItemDTO> listForSearch(int pageNum, int pageSize) {
         pageNum = Math.max(1, pageNum);
         pageSize = Math.min(Math.max(1, pageSize), 200);
         Page<Product> page = new Page<>(pageNum, pageSize);
         Page<Product> result = productMapper.selectPage(page, null);
         Map<Long, ProductCategoryVO> categoryMap = loadCategoryMap();
-        List<ProductSearchSyncMessage> messages = result.getRecords().stream()
-                .map(p -> convertToMessage(p, categoryMap.get(p.getCategoryId())))
+        List<ProductSearchItemDTO> items = result.getRecords().stream()
+                .map(p -> convertToItem(p, categoryMap.get(p.getCategoryId())))
                 .toList();
-        return PageResult.success(messages, result.getCurrent(), result.getSize(), result.getTotal());
+        return PageResult.success(items, result.getCurrent(), result.getSize(), result.getTotal());
     }
 
     @Override
@@ -77,36 +77,36 @@ public class ProductInternalServiceImpl implements ProductInternalService {
                 .collect(Collectors.toMap(ProductCategoryVO::getId, c -> c));
     }
 
-    private ProductSearchSyncMessage convertToMessage(ProductVO vo, ProductCategoryVO category) {
-        ProductSearchSyncMessage message = new ProductSearchSyncMessage();
-        message.setId(vo.getId());
-        message.setCategoryId(vo.getCategoryId());
-        message.setCategoryName(vo.getCategoryName());
-        message.setCategorySort(vo.getCategorySort());
-        message.setName(vo.getName());
-        message.setCoverImage(vo.getCoverImage());
-        message.setPrice(vo.getPrice());
-        message.setStock(vo.getStock());
-        message.setDescription(vo.getDescription());
-        message.setStatus(vo.getStatus());
-        return message;
+    private ProductSearchItemDTO convertToItem(ProductVO vo, ProductCategoryVO category) {
+        ProductSearchItemDTO item = new ProductSearchItemDTO();
+        item.setId(vo.getId());
+        item.setCategoryId(vo.getCategoryId());
+        item.setCategoryName(vo.getCategoryName());
+        item.setCategorySort(vo.getCategorySort());
+        item.setName(vo.getName());
+        item.setCoverImage(vo.getCoverImage());
+        item.setPrice(vo.getPrice());
+        item.setStock(vo.getStock());
+        item.setDescription(vo.getDescription());
+        item.setStatus(vo.getStatus());
+        return item;
     }
 
-    private ProductSearchSyncMessage convertToMessage(Product product, ProductCategoryVO category) {
-        ProductSearchSyncMessage message = new ProductSearchSyncMessage();
-        message.setId(product.getId());
-        message.setCategoryId(product.getCategoryId());
+    private ProductSearchItemDTO convertToItem(Product product, ProductCategoryVO category) {
+        ProductSearchItemDTO item = new ProductSearchItemDTO();
+        item.setId(product.getId());
+        item.setCategoryId(product.getCategoryId());
         if (category != null) {
-            message.setCategoryName(category.getName());
-            message.setCategorySort(category.getSort());
+            item.setCategoryName(category.getName());
+            item.setCategorySort(category.getSort());
         }
-        message.setName(product.getName());
-        message.setCoverImage(product.getCoverImage());
-        message.setPrice(product.getPrice());
-        message.setStock(product.getStock());
-        message.setDescription(product.getDescription());
-        message.setStatus(product.getStatus());
-        message.setCreatedAt(product.getCreatedAt());
-        return message;
+        item.setName(product.getName());
+        item.setCoverImage(product.getCoverImage());
+        item.setPrice(product.getPrice());
+        item.setStock(product.getStock());
+        item.setDescription(product.getDescription());
+        item.setStatus(product.getStatus());
+        item.setCreatedAt(product.getCreatedAt());
+        return item;
     }
 }

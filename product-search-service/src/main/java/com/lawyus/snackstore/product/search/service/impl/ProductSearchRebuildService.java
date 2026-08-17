@@ -1,6 +1,6 @@
 package com.lawyus.snackstore.product.search.service.impl;
 
-import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
+import com.lawyus.snackstore.common.dto.ProductSearchItemDTO;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.product.search.client.ProductDataClient;
 import com.lawyus.snackstore.product.search.model.document.ProductSearchDocument;
@@ -64,9 +64,9 @@ public class ProductSearchRebuildService {
             long savedCount = 0;
             long total = 0;
             do {
-                PageResult<ProductSearchSyncMessage> page =
-                        productDataClient.listForSearch("rebuild", pageNum, pageSize);
-                List<ProductSearchSyncMessage> records = page.getData();
+                PageResult<ProductSearchItemDTO> page =
+                        productDataClient.listForSearch(pageNum, pageSize);
+                List<ProductSearchItemDTO> records = page.getData();
                 if (records == null || records.isEmpty()) {
                     break;
                 }

@@ -1,5 +1,6 @@
 package com.lawyus.snackstore.product.search.listener;
 
+import com.lawyus.snackstore.common.dto.ProductSearchItemDTO;
 import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
 import com.lawyus.snackstore.product.search.service.ProductSearchIndexService;
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ public class ProductSearchSyncConsumer {
                 log.info("商品索引已删除: productId={}, eventId={}, 耗时{}ms",
                         productId, eventId, System.currentTimeMillis() - startTime);
             } else {
-                searchIndexService.save(message);
+                searchIndexService.save(toItem(message));
                 log.info("商品索引已更新: productId={}, type={}, eventId={}, 耗时{}ms",
                         productId, changeType, eventId, System.currentTimeMillis() - startTime);
             }
@@ -57,5 +58,21 @@ public class ProductSearchSyncConsumer {
                     productId, changeType, eventId, partition, offset, e);
             throw e;
         }
+    }
+
+    private ProductSearchItemDTO toItem(ProductSearchSyncMessage message) {
+        ProductSearchItemDTO item = new ProductSearchItemDTO();
+        item.setId(message.getId());
+        item.setCategoryId(message.getCategoryId());
+        item.setCategoryName(message.getCategoryName());
+        item.setCategorySort(message.getCategorySort());
+        item.setName(message.getName());
+        item.setCoverImage(message.getCoverImage());
+        item.setPrice(message.getPrice());
+        item.setStock(message.getStock());
+        item.setDescription(message.getDescription());
+        item.setStatus(message.getStatus());
+        item.setCreatedAt(message.getCreatedAt());
+        return item;
     }
 }

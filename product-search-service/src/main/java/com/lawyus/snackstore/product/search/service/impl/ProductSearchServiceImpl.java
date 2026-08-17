@@ -28,7 +28,7 @@ import org.springframework.util.StringUtils;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.lawyus.snackstore.common.dto.ProductSearchDTO;
-import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
+import com.lawyus.snackstore.common.dto.ProductSearchItemDTO;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.ResultCode;
 import com.lawyus.snackstore.product.search.client.ProductDataClient;
@@ -115,7 +115,7 @@ public class ProductSearchServiceImpl implements ProductSearchService {
 
     public PageResult<ProductSearchVO> searchFallback(ProductSearchDTO dto, Throwable t) {
         log.warn("ES搜索降级到MySQL: keyword={}, cause={}", dto.getKeyword(), t.getMessage());
-        PageResult<ProductSearchSyncMessage> fallbackResult = productDataClient.searchFallback(dto);
+        PageResult<ProductSearchItemDTO> fallbackResult = productDataClient.searchFallback(dto);
         if (fallbackResult == null || fallbackResult.getData() == null) {
             return PageResult.success(List.of(), (long) dto.getPageNum(), (long) dto.getPageSize(), 0L);
         }
@@ -164,10 +164,6 @@ public class ProductSearchServiceImpl implements ProductSearchService {
             filterQueries.add(buildPriceRangeQuery(dto));
         }
 
-        if (mustQueries.isEmpty() && filterQueries.isEmpty()) {
-            return Query.of(q -> q.matchAll(m -> m));
-        }
-
         return Query.of(q -> q.bool(b -> {
             if (!mustQueries.isEmpty()) {
                 b.must(mustQueries);
@@ -208,18 +204,18 @@ public class ProductSearchServiceImpl implements ProductSearchService {
         return vo;
     }
 
-    private ProductSearchVO convertToVO(ProductSearchSyncMessage message) {
+    private ProductSearchVO convertToVO(ProductSearchItemDTO item) {
         ProductSearchVO vo = new ProductSearchVO();
-        vo.setId(message.getId());
-        vo.setCategoryId(message.getCategoryId());
-        vo.setCategoryName(message.getCategoryName());
-        vo.setCategorySort(message.getCategorySort());
-        vo.setName(message.getName());
-        vo.setCoverImage(message.getCoverImage());
-        vo.setPrice(message.getPrice());
-        vo.setStock(message.getStock());
-        vo.setDescription(message.getDescription());
-        vo.setStatus(message.getStatus());
+        vo.setId(item.getId());
+        vo.setCategoryId(item.getCategoryId());
+        vo.setCategoryName(item.getCategoryName());
+        vo.setCategorySort(item.getCategorySort());
+        vo.setName(item.getName());
+        vo.setCoverImage(item.getCoverImage());
+        vo.setPrice(item.getPrice());
+        vo.setStock(item.getStock());
+        vo.setDescription(item.getDescription());
+        vo.setStatus(item.getStatus());
         return vo;
     }
 

@@ -1,6 +1,6 @@
 package com.lawyus.snackstore.product.search.service.impl;
 
-import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
+import com.lawyus.snackstore.common.dto.ProductSearchItemDTO;
 import com.lawyus.snackstore.product.search.model.document.ProductSearchDocument;
 import com.lawyus.snackstore.product.search.repository.ProductSearchRepository;
 import com.lawyus.snackstore.product.search.service.ProductSearchIndexService;
@@ -23,20 +23,20 @@ public class ProductSearchIndexServiceImpl implements ProductSearchIndexService 
     }
 
     @Override
-    public void save(ProductSearchSyncMessage message) {
-        if (message == null || message.getId() == null) {
+    public void save(ProductSearchItemDTO item) {
+        if (item == null || item.getId() == null) {
             return;
         }
-        productSearchRepository.save(buildDocument(message));
-        log.debug("ES索引已保存: productId={}", message.getId());
+        productSearchRepository.save(buildDocument(item));
+        log.debug("ES索引已保存: productId={}", item.getId());
     }
 
     @Override
-    public void saveAll(List<ProductSearchSyncMessage> messages) {
-        if (messages == null || messages.isEmpty()) {
+    public void saveAll(List<ProductSearchItemDTO> items) {
+        if (items == null || items.isEmpty()) {
             return;
         }
-        List<ProductSearchDocument> documents = messages.stream()
+        List<ProductSearchDocument> documents = items.stream()
                 .filter(m -> m != null && m.getId() != null)
                 .map(this::buildDocument)
                 .toList();
@@ -56,21 +56,21 @@ public class ProductSearchIndexServiceImpl implements ProductSearchIndexService 
         log.debug("ES索引已删除: productId={}", productId);
     }
 
-    private ProductSearchDocument buildDocument(ProductSearchSyncMessage message) {
+    private ProductSearchDocument buildDocument(ProductSearchItemDTO item) {
         ProductSearchDocument document = new ProductSearchDocument();
-        document.setId(message.getId());
-        document.setCategoryId(message.getCategoryId());
-        document.setCategoryName(message.getCategoryName());
-        document.setCategorySort(message.getCategorySort());
-        document.setName(message.getName());
-        document.setCoverImage(message.getCoverImage());
-        if (message.getPrice() != null) {
-            document.setPrice(message.getPrice().multiply(BigDecimal.valueOf(100)).doubleValue());
+        document.setId(item.getId());
+        document.setCategoryId(item.getCategoryId());
+        document.setCategoryName(item.getCategoryName());
+        document.setCategorySort(item.getCategorySort());
+        document.setName(item.getName());
+        document.setCoverImage(item.getCoverImage());
+        if (item.getPrice() != null) {
+            document.setPrice(item.getPrice().multiply(BigDecimal.valueOf(100)).doubleValue());
         }
-        document.setStock(message.getStock());
-        document.setDescription(message.getDescription());
-        document.setStatus(message.getStatus());
-        document.setCreatedAt(message.getCreatedAt());
+        document.setStock(item.getStock());
+        document.setDescription(item.getDescription());
+        document.setStatus(item.getStatus());
+        document.setCreatedAt(item.getCreatedAt());
         return document;
     }
 }

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.lawyus.snackstore.common.dto.ProductSearchDTO;
-import com.lawyus.snackstore.common.message.ProductSearchSyncMessage;
+import com.lawyus.snackstore.common.dto.ProductSearchItemDTO;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.product.model.vo.ProductCategoryVO;
@@ -30,13 +30,13 @@ public class ProductInternalController {
     }
 
     @PostMapping("/search/fallback")
-    public PageResult<ProductSearchSyncMessage> searchFallback(@RequestBody @Valid ProductSearchDTO dto) {
+    public PageResult<ProductSearchItemDTO> searchFallback(@RequestBody @Valid ProductSearchDTO dto) {
         return productInternalService.searchFallback(dto);
     }
 
     @GetMapping
-    public PageResult<ProductSearchSyncMessage> listForSearch(@RequestParam int pageNum,
-                                                              @RequestParam int pageSize) {
+    public PageResult<ProductSearchItemDTO> listForSearch(@RequestParam int pageNum,
+                                                          @RequestParam int pageSize) {
         return productInternalService.listForSearch(pageNum, pageSize);
     }
 
