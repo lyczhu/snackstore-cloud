@@ -35,17 +35,18 @@ public class AuthController {
     }
 
     /**
-     * 获取客户端 IP：优先取代理头 X-Forwarded-For 第一个地址，兜底 RemoteAddr
+     * 获取客户端 IP：优先取 X-Real-IP（由网关按 TCP 连接对端地址覆写，不可伪造），
+     * 其次取 X-Forwarded-For 最后一跳（最近一跳代理追加），兜底 RemoteAddr
      */
     private String extractClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            int comma = forwarded.indexOf(',');
-            return (comma > 0 ? forwarded.substring(0, comma) : forwarded).trim();
-        }
         String realIp = request.getHeader("X-Real-IP");
         if (realIp != null && !realIp.isBlank()) {
             return realIp.trim();
+        }
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            int comma = forwarded.lastIndexOf(',');
+            return (comma > 0 ? forwarded.substring(comma + 1) : forwarded).trim();
         }
         return request.getRemoteAddr();
     }

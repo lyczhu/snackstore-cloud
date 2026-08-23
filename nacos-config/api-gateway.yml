@@ -52,7 +52,9 @@ gateway:
       - "POST:/api/auth/admin/login"
       - "GET:/api/products/**"
       - "GET:/api/products/categories/**"
-      - "GET:/api-docs/**"
+      # 仅放行 OpenAPI 文档路径（* 不跨段）；历史上 /** 配合开放代理路由可匿名伪造
+      # X-User-* 头越权访问业务接口，已收紧
+      - "GET:/api-docs/*/v3/api-docs"
     admin-prefix-patterns:
       - "/api/admin/**"
       - "/api/auth/admin/**"
@@ -69,6 +71,7 @@ gateway:
       - "PUT:/api/products/categories/**"
       - "DELETE:/api/products/categories/**"
       - "GET:/api/statistics/**"
+      - "POST:/api/product-search/rebuild"
 
 springdoc:
   swagger-ui:

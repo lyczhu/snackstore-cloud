@@ -47,33 +47,35 @@ routes:
       - StripPrefix=1
     order: 3
   # OpenAPI 聚合路由（供网关 Swagger UI 拉取各服务 api-docs，同源免跨域）
+  # 谓词只放行 /v3/api-docs 精确路径：历史上 /** + StripPrefix=2 会把该路由变成
+  # 指向各服务根路径的开放代理，可匿名/越权访问业务接口与 /internal/**（越权高危）。
   - id: openapi-user-service
     uri: lb://user-service
     predicates:
-      - Path=/api-docs/user-service/**
+      - Path=/api-docs/user-service/v3/api-docs
     filters:
       - StripPrefix=2
   - id: openapi-product-service
     uri: lb://product-service
     predicates:
-      - Path=/api-docs/product-service/**
+      - Path=/api-docs/product-service/v3/api-docs
     filters:
       - StripPrefix=2
   - id: openapi-product-search-service
     uri: lb://product-search-service
     predicates:
-      - Path=/api-docs/product-search-service/**
+      - Path=/api-docs/product-search-service/v3/api-docs
     filters:
       - StripPrefix=2
   - id: openapi-order-service
     uri: lb://order-service
     predicates:
-      - Path=/api-docs/order-service/**
+      - Path=/api-docs/order-service/v3/api-docs
     filters:
       - StripPrefix=2
   - id: openapi-statistics-service
     uri: lb://statistics-service
     predicates:
-      - Path=/api-docs/statistics-service/**
+      - Path=/api-docs/statistics-service/v3/api-docs
     filters:
       - StripPrefix=2

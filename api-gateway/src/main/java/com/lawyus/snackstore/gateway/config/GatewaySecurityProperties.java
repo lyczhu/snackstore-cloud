@@ -23,7 +23,7 @@ public class GatewaySecurityProperties {
             "POST:/api/auth/admin/login",
             "GET:/api/products/**",
             "GET:/api/products/categories/**",
-            "GET:/api-docs/**"
+            "GET:/api-docs/*/v3/api-docs"
     );
 
     /** 仅管理员可访问的前缀路径 */

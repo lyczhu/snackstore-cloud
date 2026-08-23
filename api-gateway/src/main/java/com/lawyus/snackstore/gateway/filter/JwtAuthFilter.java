@@ -56,7 +56,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         String path = request.getURI().getPath();
 
         if (isWhiteListed(path, request.getMethod().name())) {
-            return chain.filter(exchange);
+            // 白名单路径未做认证：剥离客户端伪造的身份头，下游服务不得信任未注入的身份
+            return chain.filter(stripIdentityHeaders(exchange));
         }
 
         String token = extractToken(request);
@@ -117,6 +118,24 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             String p = entry.substring(idx + 1);
             return m.equals(method) && PATH_MATCHER.match(p, path);
         });
+    }
+
+    /** 移除客户端传入的身份头，防止白名单路径上伪造 X-User-* 被下游误信 */
+    private ServerWebExchange stripIdentityHeaders(ServerWebExchange exchange) {
+        ServerHttpRequest request = exchange.getRequest();
+        if (!request.getHeaders().containsKey(AuthConstants.HEADER_USER_ID)
+                && !request.getHeaders().containsKey(AuthConstants.HEADER_USERNAME)
+                && !request.getHeaders().containsKey(AuthConstants.HEADER_USER_ROLE)) {
+            return exchange;
+        }
+        ServerHttpRequest mutated = request.mutate()
+                .headers(h -> {
+                    h.remove(AuthConstants.HEADER_USER_ID);
+                    h.remove(AuthConstants.HEADER_USERNAME);
+                    h.remove(AuthConstants.HEADER_USER_ROLE);
+                })
+                .build();
+        return exchange.mutate().request(mutated).build();
     }
 
     private boolean requiresAdmin(String method, String path) {

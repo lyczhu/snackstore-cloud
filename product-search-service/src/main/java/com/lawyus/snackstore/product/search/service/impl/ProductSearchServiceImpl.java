@@ -56,7 +56,8 @@ public class ProductSearchServiceImpl implements ProductSearchService {
     @Override
     @SentinelResource(value = "productSearch",
             fallback = "searchFallback",
-            blockHandler = "searchBlockHandler")
+            blockHandler = "searchBlockHandler",
+            exceptionsToIgnore={IllegalArgumentException.class})
     public PageResult<ProductSearchVO> search(ProductSearchDTO dto) {
         validateSortField(dto.getSortField());
         validateDeepPagination(dto);
