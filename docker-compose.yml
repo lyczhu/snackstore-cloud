@@ -11,6 +11,12 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e 'SELECT 1' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks:
       - snackstore
 
@@ -21,6 +27,12 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - snackstore
 
@@ -73,11 +85,22 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
     networks:
       - snackstore
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.3
+    # 自定义镜像内置 IK 中文分词器（product-search-service mapping 依赖 ik_max_word/ik_smart）
+    build:
+      context: ./elasticsearch
+      args:
+        ES_VERSION: 9.2.3
+    image: snackstore-elasticsearch-ik:9.2.3
     container_name: snackstore-elasticsearch
     environment:
       - discovery.type=single-node
@@ -95,6 +118,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
   kibana:
     image: docker.elastic.co/kibana/kibana:9.2.3
@@ -137,7 +161,7 @@ services:
       nacos:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - snackstore
 
@@ -167,9 +191,9 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       mysql:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       nacos:
         condition: service_healthy
     networks:
@@ -199,13 +223,13 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     depends_on:
       mysql:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       nacos:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     networks:
       - snackstore
 
@@ -231,9 +255,9 @@ services:
       nacos:
         condition: service_healthy
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     networks:
       - snackstore
 
@@ -260,9 +284,9 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       mysql:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       nacos:
         condition: service_healthy
     networks:
@@ -288,7 +312,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       nacos:
         condition: service_healthy
     networks:
