@@ -6,6 +6,7 @@ import com.lawyus.snackstore.user.domain.user.model.entity.User;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.Password;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.Phone;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.UserRole;
+import com.lawyus.snackstore.user.domain.user.port.LoginLockPort;
 import com.lawyus.snackstore.user.domain.user.port.PasswordEncoder;
 import com.lawyus.snackstore.user.domain.user.port.VerificationCodePort;
 import com.lawyus.snackstore.user.domain.user.repository.UserRepository;
@@ -19,15 +20,18 @@ public class UserAuthenticationDomainService {
     private final PasswordEncoder passwordEncoder;
     private final DomainEventPublisher eventPublisher;
     private final VerificationCodePort verificationCodePort;
+    private final LoginLockPort loginLockPort;
 
     public UserAuthenticationDomainService(UserRepository userRepository,
                                            PasswordEncoder passwordEncoder,
                                            DomainEventPublisher eventPublisher,
-                                           VerificationCodePort verificationCodePort) {
+                                           VerificationCodePort verificationCodePort,
+                                           LoginLockPort loginLockPort) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
         this.verificationCodePort = verificationCodePort;
+        this.loginLockPort = loginLockPort;
     }
 
     public User register(Phone phone, String rawPassword, String smsCode, String expectedCode) {
@@ -48,6 +52,11 @@ public class UserAuthenticationDomainService {
     }
 
     public User login(Phone phone, String rawPassword) {
+        if (loginLockPort.isLocked(phone.getValue())) {
+            log.warn("登录已被锁定: phone={}", phone.getValue());
+            throw BusinessExceptionEnum.PASSWORD_ERROR.getException("密码错误次数过多，请稍后重试");
+        }
+
         User user = userRepository.findByPhone(phone)
                 .orElseThrow(BusinessExceptionEnum.USER_NOT_FOUND::getException);
 
@@ -56,9 +65,12 @@ public class UserAuthenticationDomainService {
         }
 
         if (!user.getPassword().matches(rawPassword, passwordEncoder)) {
+            long failCount = loginLockPort.incrementFail(phone.getValue());
+            log.warn("密码登录失败: phone={}, 累计失败次数={}", phone.getValue(), failCount);
             throw BusinessExceptionEnum.PASSWORD_ERROR.getException();
         }
 
+        loginLockPort.resetFail(phone.getValue());
         user.onLogin();
         eventPublisher.publishAll(user.getDomainEvents());
         user.clearDomainEvents();

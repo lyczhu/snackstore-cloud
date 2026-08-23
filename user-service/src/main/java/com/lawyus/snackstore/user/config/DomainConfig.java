@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import com.lawyus.snackstore.user.domain.address.repository.AddressRepository;
 import com.lawyus.snackstore.user.domain.address.service.AddressManagementDomainService;
 import com.lawyus.snackstore.user.domain.common.event.DomainEventPublisher;
+import com.lawyus.snackstore.user.domain.user.port.LoginLockPort;
 import com.lawyus.snackstore.user.domain.user.port.PasswordEncoder;
 import com.lawyus.snackstore.user.domain.user.port.VerificationCodePort;
 import com.lawyus.snackstore.user.domain.user.repository.UserRepository;
@@ -19,8 +20,9 @@ public class DomainConfig {
     public UserAuthenticationDomainService userAuthenticationDomainService(UserRepository userRepository,
                                                                             PasswordEncoder passwordEncoder,
                                                                             DomainEventPublisher eventPublisher,
-                                                                            VerificationCodePort verificationCodePort) {
-        return new UserAuthenticationDomainService(userRepository, passwordEncoder, eventPublisher, verificationCodePort);
+                                                                            VerificationCodePort verificationCodePort,
+                                                                            LoginLockPort loginLockPort) {
+        return new UserAuthenticationDomainService(userRepository, passwordEncoder, eventPublisher, verificationCodePort, loginLockPort);
     }
 
     @Bean

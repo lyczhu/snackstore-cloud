@@ -43,6 +43,9 @@ user:
     code-ttl-minutes: 5
     send-interval-seconds: 60
     daily-max: 10
+  login:
+    max-fail: 5
+    fail-lock-minutes: 30
 
 logging:
   level:
