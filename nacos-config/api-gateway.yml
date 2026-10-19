@@ -92,6 +92,10 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
 
+# 网关不配 %X{requestId} 日志格式：WebFlux/Netty 下一次请求的日志回调可能跨事件循环线程，
+# 线程本地 MDC 无法保证与请求一一对应（错 id 比空 id 更误导）。
+# 请求 id 由 RequestTraceFilter 生成，并由 AccessLogFilter、GatewayExceptionHandler
+# 以 "[id]" 形式显式打在日志正文里，同时回写 X-Request-Id 响应头。
 logging:
   level:
     com.lawyus.snackstore: debug

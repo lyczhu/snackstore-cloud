@@ -18,11 +18,13 @@ public class AccessLogFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
         String method = exchange.getRequest().getMethod().name();
+        // 在完成回调所在线程上取不到 MDC，故在链路开始前就把 id 取成局部变量
+        String requestId = RequestTraceFilter.currentRequestId(exchange);
         long startTime = System.currentTimeMillis();
 
         return chain.filter(exchange).then(Mono.fromRunnable(() -> {
             long duration = System.currentTimeMillis() - startTime;
-            log.info("{} {} - {}ms", method, path, duration);
+            log.info("[{}] {} {} - {}ms", requestId, method, path, duration);
         }));
     }
 
