@@ -32,3 +32,8 @@ jobs:
       # 用 -B -ntp 而不是 -q：失败时要能看到是哪个模块、哪条断言红了。
       - name: Run unit tests
         run: mvn -B -ntp test
+
+      # 打包检查：覆盖可装配产物（6 个服务的 spring-boot 可执行 jar repackage）。
+      # 上一步已跑过 test，这里 -DskipTests 只验装配能否产出 jar，不重复跑测试。
+      - name: Package assemblies
+        run: mvn -B -ntp package -DskipTests
