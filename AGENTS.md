@@ -4,13 +4,19 @@ Spring Boot 3 + Spring Cloud Alibaba microservices backend. Java 25, MyBatis-Plu
 
 ## Build
 
+Use the Maven Wrapper — it pins the build to **Maven 3.9.11** via
+`.mvn/wrapper/maven-wrapper.properties` (`distributionType=only-script`, `wrapperVersion=3.3.4`,
+so there is no `maven-wrapper.jar` to commit; `.gitignore` still ignores that path).
+`./mvnw` in bash/WSL/CI, `.\mvnw.cmd` in PowerShell. Plain `mvn` works too, but your local
+version then decides the build.
+
 ```bash
-mvn clean compile
-mvn clean package -DskipTests
-mvn clean package -DskipTests -pl <module> -am   # single module + deps
+./mvnw clean compile
+./mvnw clean package -DskipTests
+./mvnw clean package -DskipTests -pl <module> -am   # single module + deps
 ```
 
-Tests: **160 unit tests across all 6 service modules + common** (JUnit 5 + Mockito, no Spring context, no MySQL/Redis/Nacos/ES needed). `mvn test` runs the whole reactor green (measured on this machine: 62s for `mvn -B -ntp test`, 2:09 for the first build in a cold worktree). **CI exists**: GitHub Actions `.github/workflows/maven.yml` ("Maven CI") runs `mvn -B -ntp test` on JDK 25 (zulu, same vendor as the service Dockerfiles) — triggers are `push` to `main`, `pull_request` targeting `main`, and `workflow_dispatch`; **a branch pushed without a PR to `main` gets no green signal**. CI covers the unit layer only: nothing in CI exercises MySQL/Redis/Nacos/Kafka/ES (integration gap tracked as S0-b in `docs/architecture/migration-roadmap.md`). Still no lint and no formatter, so style signals only come from reading the surrounding code.
+Tests: **160 unit tests across all 6 service modules + common** (JUnit 5 + Mockito, no Spring context, no MySQL/Redis/Nacos/ES needed). `./mvnw test` runs the whole reactor green (measured on this machine: 62s for `./mvnw -B -ntp test`, 2:09 for the first build in a cold worktree). **CI exists**: GitHub Actions `.github/workflows/maven.yml` ("Maven CI") runs `mvn -B -ntp test` on JDK 25 (zulu, same vendor as the service Dockerfiles) on `push`/`pull_request` to `main` (plus `workflow_dispatch`); a branch pushed without a PR to `main` gets no CI signal. CI covers the unit layer only — MySQL/Redis/Nacos/Kafka/ES are not exercised (integration gap tracked as S0-b in `docs/architecture/migration-roadmap.md`). There is still no lint and no formatter, so style signals only come from reading the surrounding code.
 
 Test coverage by module: `common` 23 (JwtUtil 签名/过期/密钥强度, Result/PageResult 契约, 搜索双通道 DTO 字段集比对), `api-gateway` 16 (`JwtAuthFilter` 信任边界, `ClientIpHeaderFilter` 伪造代理头), `user-service` 30 (注册/登录检查顺序, 默认地址不变量, 值对象校验), `product-service` 29 (库存原子扣减与事件, 排序白名单与降级口径, `ProductChangedListener` 消息组装/分区键/失败重试), `product-search-service` 32 (ES 查询构造/金额换算/降级, Kafka 消费者手工 ACK 与字段映射, DLT 必 ack, 全量重建的顺序/单实例/失败复位/页数上限), `order-service` 11 (下单金额、插入顺序、状态流转, `ProductClientFallbackFactory` 失败关闭), `statistics-service` 19 (缓存键隔离与 TTL 抖动, 聚合口径, 非 200 不写缓存, 三个 Feign 降级工厂失败关闭).
 
@@ -28,7 +34,7 @@ When adding tests in this repo:
 - **`PageResult` has exactly one factory**: `PageResult.success(List<T> data, Long pageNum, Long pageSize, Long total)` (boxed `Long` args, `pages` computed internally). There is no `PageResult.of(...)`.
 - **`@Value` fields are not injected in plain unit tests**: set them with `ReflectionTestUtils.setField` (see `ProductSearchRebuildServiceTest.pageSize`, `ProductChangedListenerTest` topic/max-attempts), otherwise the field is `0`/`null`.
 
-Run a single test: `mvn -pl <module> -am test -Dtest=OrderServiceImplTest#methodName`.
+Run a single test: `./mvnw -pl <module> -am test -Dtest=OrderServiceImplTest#methodName`.
 
 ## Infrastructure
 

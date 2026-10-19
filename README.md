@@ -65,22 +65,44 @@ API 网关服务：
 - MySQL 8.0+
 - Nacos（服务注册与配置中心）
 
+### 构建工具版本
+本仓库使用 [Maven Wrapper](https://maven.apache.org/wrapper/)：Maven 版本固定在
+`.mvn/wrapper/maven-wrapper.properties` 的 `distributionUrl`（当前 **Maven 3.9.11**），
+包装脚本版本为 `wrapperVersion`（当前 **3.3.4**，`distributionType=only-script`，
+因此不需要提交 `maven-wrapper.jar`）。
+首次执行 `./mvnw` 会按上面的 URL 下载一次发行包到 `~/.m2/wrapper/dists/`，之后离线可用。
+这样每个人、每台 CI 节点用的都是同一个 Maven，不再依赖本地 `mvn` 的版本。
+
 ### 启动顺序
 1. 启动 Nacos 服务端
 2. 依次启动各微服务模块
 
 ### 常用命令
 
+优先用 `./mvnw`（Windows 下在 PowerShell 里用 `.\mvnw.cmd`，在 Git Bash/WSL/Linux/macOS 里用 `./mvnw`）；
+括号里的 `mvn` 等价，仅在你已装且确认版本一致时可用。
+
 ```bash
 # 编译项目
-mvn clean compile
+./mvnw clean compile          # 等价：mvn clean compile
 
 # 跳过测试打包
-mvn clean package -DskipTests
+./mvnw clean package -DskipTests          # 等价：mvn clean package -DskipTests
 
-# 单模块打包
-mvn clean package -DskipTests -pl module-name -am
+# 单模块打包（-am 连带构建其依赖模块）
+./mvnw clean package -DskipTests -pl module-name -am   # 等价：mvn 同参数
+
+# 跑单个测试类的方法
+./mvnw -pl order-service -am test -Dtest=OrderServiceImplTest#methodName
+
+# 确认当前生效的 Maven 版本
+./mvnw -v
 ```
+
+Windows 上请让脚本保持各自的行尾：`mvnw` 必须是 LF（否则 bash 报 `\r: command not found`），
+`mvnw.cmd` 必须是 CRLF；仓库根的 `.gitattributes` 已分别锁定，不要手动改。
+若从 Git 外部（如解压、拷贝）取得 `mvnw` 导致丢失可执行位，用
+`git update-index --chmod=+x mvnw` 补回，否则 Linux/CI 上会 `Permission denied`。
 
 ## 数据库
 

@@ -33,6 +33,11 @@ spring:
 
 logging:
   level:
+    # 搜索入参日志（ProductSearchServiceImpl 的 “ES搜索请求: keyword=…”）位于 DEBUG，
+    # 因此本行设为 info 时不会输出——这是有意选择：同一请求已由 info 级的
+    # “ES搜索完成: keyword/命中数/耗时”占位，重复打参数只会放大热点读路径的日志量。
+    # 排查参数绑定/过滤条件问题时把下面一行改为 debug 即可，Nacos 实时刷新无需重启；
+    # 注意整包调成 debug 会连带打开 ProductSearchIndexServiceImpl 每条消息的索引 debug 日志。
     com.lawyus.snackstore.product.search: info
     org.springframework.kafka: info
     co.elastic.clients: warn

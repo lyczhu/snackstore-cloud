@@ -35,3 +35,14 @@ management:
 feign:
   sentinel:
     enabled: true
+
+# 日志格式：在 Spring Boot 默认控制台格式上加一段 [%X{requestId}]，
+# 值由各服务的 RequestTraceFilter 从网关注入的 X-Request-Id 写入 MDC。
+# api-gateway 不导入本文件（见 nacos-config/README.md），其 id 打在日志正文里。
+# 没有请求上下文的线程（Kafka 消费、statisticsExecutor 线程池）该字段为空。
+# 只用 logback 原生转换词：不写 %clr（会丢掉控制台颜色，但容器日志本就无色彩），
+# 不写 %wEx（logback 默认会自动补上异常堆栈）——实跑证实 %clr{...}{color} 写法会让
+# logback 抛 "All tokens consumed but was expecting \"}\" 并使服务启动失败。
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%15.15t] [%X{requestId:-}] %-40.40logger{39} : %m%n"

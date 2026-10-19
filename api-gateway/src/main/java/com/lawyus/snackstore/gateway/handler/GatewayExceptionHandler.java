@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lawyus.snackstore.common.response.Result;
 import com.lawyus.snackstore.common.response.ResultCode;
+import com.lawyus.snackstore.gateway.filter.RequestTraceFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
@@ -27,6 +28,7 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler, Ordere
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
         ServerHttpResponse response = exchange.getResponse();
+        String requestId = RequestTraceFilter.currentRequestId(exchange);
 
         if (response.isCommitted()) {
             return Mono.error(ex);
@@ -40,7 +42,7 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler, Ordere
         if (ex instanceof NotFoundException) {
             status = HttpStatus.NOT_FOUND;
             result = Result.failed(ResultCode.NOT_FOUND);
-            log.warn("路由未找到: {}", ex.getMessage());
+            log.warn("[{}] 路由未找到: {}", requestId, ex.getMessage());
         } else if (ex instanceof ResponseStatusException responseStatusException) {
             status = HttpStatus.valueOf(responseStatusException.getStatusCode().value());
             if (status == HttpStatus.SERVICE_UNAVAILABLE) {
@@ -51,7 +53,7 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler, Ordere
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
             result = Result.failed(ResultCode.INTERNAL_SERVER_ERROR);
-            log.error("网关异常", ex);
+            log.error("[{}] 网关异常", requestId, ex);
         }
 
         response.setStatusCode(status);
