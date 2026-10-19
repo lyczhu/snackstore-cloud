@@ -123,6 +123,40 @@
             </plugins>
         </pluginManagement>
         <plugins>
+            <!--
+                Mockito 5 的 inline mock maker 需要 ByteBuddy agent。JDK 21+ 已废弃运行时
+                自附加，不显式挂 agent 时每次 surefire 都会打
+                "Mockito is currently self-attaching ... will no longer work in future releases"，
+                未来 JDK 会直接失败。properties 目标把已解析依赖的路径写成
+                ${groupId:artifactId:type} 形式的属性，供下面 surefire 引用，
+                因此不需要硬编码 mockito 版本（由 Spring Boot BOM 管理）。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-mockito-agent</id>
+                        <!-- 必须在 surefire（test 阶段）之前把属性设好 -->
+                        <phase>process-test-classes</phase>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                        本项目无 jacoco，所以直接写 argLine；若以后接入代码覆盖率，
+                        需改成 "@{argLine} -javaagent:..." 以保留探针参数。
+                        各模块不要单独覆写 argLine，否则 agent 丢掉了又会回到自附加。
+                    -->
+                    <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

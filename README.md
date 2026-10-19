@@ -89,4 +89,4 @@ mvn clean package -DskipTests -pl module-name -am
 ## API 文档
 
 各服务启动后，访问 Swagger UI：
-- API Gateway: http://localhost:9000/swagger-ui.html
+- API Gateway: http://localhost:8080/swagger-ui.html
