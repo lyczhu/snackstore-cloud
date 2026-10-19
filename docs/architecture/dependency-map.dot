@@ -1,0 +1,51 @@
+// 依赖图与耦合度量（当前态）— 场景技能 dependency-impact-analyzer + 基础技能 graphviz
+// 度量口径: fanIn/fanOut 只统计「服务间 Feign 调用」，网关路由单列（配置面，不是业务依赖）
+// I = fanOut/(fanIn+fanOut)（ instability ）；0=最稳定（被依赖不依赖人），1=最不稳定
+// 证据: 各 *Client/@FeignClient 声明、193 个 main java 文件的同名类分组、各模块 pom.xml
+digraph "dependency_map" {
+    rankdir=TB;
+    nodesep=0.6;
+    ranksep=1.0;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=11, style=filled, fillcolor="#F5F7FA", color="#4B5563"];
+    edge [fontname="Microsoft YaHei", fontsize=9];
+
+    common [label="common（共享库 jar）\ncompile fanIn = 6/6 模块\nResult/PageResult/JwtUtil/AuthConstants\nProductSearchSyncMessage/ProductSearchItemDTO", fillcolor="#FFE8CC", color="#B45309"];
+
+    gw [label="api-gateway\nroute fanOut=5, Feign fanOut=0\nI=n/a（配置面入口）", fillcolor="#DAE8FC"];
+    product [label="product-service\nfanIn=3  fanOut=0\nI=0.00 ★最稳定（领域核心）", fillcolor="#D5E8D4", color="#2F6B5E"];
+    order [label="order-service\nfanIn=1  fanOut=1\nI=0.50", fillcolor="#DAE8FC"];
+    user [label="user-service\nfanIn=1  fanOut=0\nI=0.00", fillcolor="#D5E8D4"];
+    search [label="product-search-service\nfanIn=0  fanOut=1\nI=1.00 最不稳定", fillcolor="#FFF2CC"];
+    stats [label="statistics-service\nfanIn=0  fanOut=3\nI=1.00 最不稳定（聚合器）", fillcolor="#FFF2CC"];
+
+    # 运行时同步调用（Feign）
+    order -> product [label="runtime-call\n/products/?ids= + stock/batch-*", color="#C0392B"];
+    search -> product [label="runtime-call\n/internal/products*", color="#2F6B5E"];
+    stats -> order [label="runtime-call\n/internal/orders/*"];
+    stats -> product [label="runtime-call\n/internal/products/*"];
+    stats -> user [label="runtime-call\n/internal/users/count"];
+
+    # 异步事件（弱依赖，不构成调用耦合）
+    product -> search [label="async-event\nKafka product-changed", style=dashed, color="#8B5CF6"];
+
+    # 网关路由（配置面依赖，非编译/调用依赖）
+    gw -> user [label="route", style=dotted, color="#6B7280"];
+    gw -> product [label="route", style=dotted, color="#6B7280"];
+    gw -> order [label="route", style=dotted, color="#6B7280"];
+    gw -> search [label="route order=0\n先于 products", style=dotted, color="#C0392B"];
+    gw -> stats [label="route", style=dotted, color="#6B7280"];
+
+    # 编译期依赖（6/6 模块 -> common）。不用 cluster 包裹服务节点，避免节点被重新归入子图
+    gw -> common [style=dashed, color="#B45309", label="compile"];
+    user -> common [style=dashed, color="#B45309"];
+    product -> common [style=dashed, color="#B45309"];
+    order -> common [style=dashed, color="#B45309"];
+    search -> common [style=dashed, color="#B45309"];
+    stats -> common [style=dashed, color="#B45309", label="compile"];
+
+    # 契约漂移（无编译期校验的隐性耦合：同名 DTO 各自演化）
+    d1 [label="契约漂移证据\nProductVO: product 侧 12 字段 vs order 侧 6 字段（已实际漂移）\nBatchStockDTO / OrderStatisticsVO / ProductCategoryVO / ProductSalesVO\nProductClient(+FallbackFactory) 各调用方自建\nBusinessException/Enum/GlobalExceptionHandler ×5\n共 13 组跨模块同名类；无共享契约模块、无契约测试", shape=note, fillcolor="#FFD5D5", color="#C0392B"];
+    order -> d1 [style=dotted, color="#C0392B", label="JSON 按字段名匹配\n缺字段静默 null"];
+    stats -> d1 [style=dotted, color="#C0392B"];
+}

@@ -1,0 +1,62 @@
+// 变更爆炸半径（blast radius）— dependency-impact-analyzer
+// 图例：红=确认影响（有代码/配置直接证据）；黄=可能影响（推断，需验证）；灰=不受影响（有隔离证据）
+// 遍历口径：从变更节点出发，沿「编译期反向 / 运行时调用反向 / 数据面 / 配置面」四类边做 1~2 跳，
+//          遇到「进程边界 + 无共享类型」即停止（JSON 名字匹配，不构成编译期约束）
+digraph "impact_map" {
+    rankdir=TB;
+    nodesep=0.5;
+    ranksep=0.9;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=11, style=filled, fillcolor="#F5F7FA"];
+    edge [fontname="Microsoft YaHei", fontsize=9];
+
+    A [label="变更点 A\ncommon 的 Result/PageResult 形状", shape=box3d, fillcolor="#FFD5D5", color="#C0392B"];
+    B [label="变更点 B\nproduct-service 输出契约\nProductVO / ProductDetailVO 字段", shape=box3d, fillcolor="#FFD5D5", color="#C0392B"];
+    C [label="变更点 C\n网关路由 order 或路径前缀", shape=box3d, fillcolor="#FFF2CC", color="#B45309"];
+    D [label="变更点 D\nES 文档结构 / INDEX_NAME", shape=box3d, fillcolor="#FFF2CC", color="#B45309"];
+    E [label="变更点 E\n订单状态语义（新增/改值）", shape=box3d, fillcolor="#FFD5D5", color="#C0392B"];
+    F [label="变更点 F\n库存接口路径或语义", shape=box3d, fillcolor="#FFD5D5", color="#C0392B"];
+
+    subgraph cluster_impacted {
+        label="受影响面";
+        style=rounded; color="#9CA3AF";
+        all6 [label="全部 6 模块\n重编译 + 全量重启", fillcolor="#FFD5D5"];
+        feignall [label="所有 Feign 调用方\nextractData 以 code==200 判定成功", fillcolor="#FFD5D5"];
+        gateway_err [label="网关错误响应体\nResult.failed 直写 JSON", fillcolor="#FFD5D5"];
+        order_flow [label="下单主流程\nstatus 为 null 即判下架\n→ 全站下单失败（fail-closed）", fillcolor="#FFD5D5"];
+        stats_flow [label="统计口径\n趋势/TOP/看板", fillcolor="#FFD5D5"];
+        search_flow [label="搜索读模型\n+ MySQL 降级结果", fillcolor="#FFF2CC"];
+        route_shadow [label="路由遮蔽\n/api/product-search 被\n/api/products 抢先匹配", fillcolor="#FFD5D5"];
+        alias_op [label="运维动作\n别名 product 需人工切换\n（应用只 warn）", fillcolor="#FFF2CC"];
+        sql_magic [label="原始 SQL 字面量\nOrderMapper 两处 status = 1\n与常量无编译期关联", fillcolor="#FFD5D5"];
+        whitelist [label="网关 admin-only 6 条库存模式\n+ 白名单 6 条", fillcolor="#FFD5D5"];
+        kafka_dto [label="common 双 DTO\nProductSearchSyncMessage\nProductSearchItemDTO", fillcolor="#FFD5D5"];
+        cancel_flow [label="取消/删除链路\nWHERE status=0 / =2", fillcolor="#FFD5D5"];
+    }
+
+    isolated [label="隔离良好的部分\n（改这些不会扩散）\n• 服务内部 service/mapper 实现\n• user-service DDD 内部分层\n• 单服务自有 MySQL 库\n• 无跨服务直连他人库", fillcolor="#EDEDED", color="#6B7280"];
+
+    A -> all6 [color="#C0392B", label="compile 反向 6/6"];
+    A -> feignall [color="#C0392B", label="序列化契约"];
+    A -> gateway_err [color="#C0392B", label="响应体形状"];
+
+    B -> order_flow [color="#C0392B", label="runtime 反向 1 跳"];
+    B -> stats_flow [color="#C0392B", label="runtime 反向 1 跳"];
+    B -> kafka_dto [color="#B45309", label="可能：快照字段集同源", style=dashed];
+
+    C -> route_shadow [color="#C0392B", label="config 面"];
+    C -> whitelist [color="#C0392B", label="path 与鉴权模式必须同步"];
+
+    D -> search_flow [color="#B45309", label="data 面", style=dashed];
+    D -> alias_op [color="#B45309", label="人工切换", style=dashed];
+    D -> kafka_dto [color="#C0392B", label="事件与拉取两条通道都要改"];
+
+    E -> sql_magic [color="#C0392B", label="data 面 静默失真"];
+    E -> stats_flow [color="#C0392B", label="只统计已完成"];
+    E -> cancel_flow [color="#C0392B", label="状态条件更新"];
+
+    F -> whitelist [color="#C0392B", label="admin-only 模式"];
+    F -> order_flow [color="#C0392B", label="Feign path 同步改"];
+
+    B -> isolated [style=invis];
+}

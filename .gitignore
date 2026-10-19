@@ -59,5 +59,9 @@ node_modules/
 .codebuddy/
 CODEBUDDY.md
 
-# agent
-AGENTS.md
+# spec-kit
+.specify/
+.qoder/
+
+# isolated git worktrees
+.worktrees/

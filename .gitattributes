@@ -1,0 +1,90 @@
+# =============================================================================
+# Line-ending policy for snackstore-cloud
+# =============================================================================
+# Policy: LF in the repository AND LF in the working tree (confirmed 2026-10).
+#
+# Before this file existed every path reported `text: unspecified` and
+# `eol: unspecified` to `git check-attr`, i.e. conversion was delegated
+# entirely to core.autocrlf. On this project's Windows development machines
+# that value is not even a developer choice: it comes from Git for Windows'
+# *system* gitconfig (D:/Programs/Git/etc/gitconfig -> core.autocrlf=true).
+# Consequence: the same commit checked out on a Windows box yields CRLF
+# working copies while a Linux/CI box with core.autocrlf=false or input
+# yields LF, and whether a newly written file lands in the index as LF or
+# as CRLF depends on the machine that staged it. "Clean vs dirty" was
+# therefore not reliably comparable between machines.
+#
+# .gitattributes has higher precedence than core.autocrlf and core.eol, so
+# these rules hold on every machine regardless of local or global config
+# (verified: check-attr returns text=set / eol=lf under autocrlf=true,
+# autocrlf=false and autocrlf=input alike).
+#
+# Scope note: this file governs future checkouts, adds and renormalization.
+# It does NOT rewrite content that is already committed. The 9 files that
+# still carry CRLF in their working copy stay byte-for-byte unchanged; they
+# normalize naturally when edited or re-checked-out. Until then `git add`
+# prints the informational advisory
+#   warning: in the working copy of '<file>', CRLF will be replaced by LF
+#   the next time Git touches it
+# for those files (git diff prints nothing). A one-pass normalization is
+# deliberately NOT done here; if it is ever wanted, run
+#   git add --renormalize .
+# and then re-check-out, in a dedicated commit containing nothing else.
+#
+# See docs/行尾规范说明.md for the full rationale and validation record.
+# =============================================================================
+
+# Treat every text file as LF on both sides. Unknown file types are detected
+# by content (NUL/binary heuristic), so binaries are never mangled.
+* text=auto eol=lf
+
+# Source, configuration and documentation files used by this project, spelled
+# out so the intent survives even if the catch-all above is ever loosened.
+*.java       text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.xml        text eol=lf
+*.md         text eol=lf
+*.json       text eol=lf
+*.properties text eol=lf
+*.sql        text eol=lf
+*.txt        text eol=lf
+*.csv        text eol=lf
+*.dot        text eol=lf
+*.dsl        text eol=lf
+Dockerfile   text eol=lf
+.gitignore   text eol=lf
+.gitattributes text eol=lf
+
+# Shell scripts must stay LF to be executable inside the service containers.
+*.sh text eol=lf
+
+# Windows batch scripts are the deliberate exception: cmd.exe needs CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never run conversion or diff on binaries.
+*.jar   binary
+*.war   binary
+*.class binary
+*.png   binary
+*.gif   binary
+*.jpg   binary
+*.jpeg  binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.tgz   binary
+
+# -----------------------------------------------------------------------------
+# Git LFS: intentionally not configured (see docs/行尾规范说明.md)
+# -----------------------------------------------------------------------------
+# git-lfs hooks are present in the developer's *global* config
+# (filter.lfs.* with filter.lfs.required=true, installed by `git lfs install`),
+# but `git lfs ls-files` returns zero objects and this repository tracks no
+# binary asset at all, so an LFS filter is NOT required here. Declaring
+# `filter=lfs` without a matching tracked pattern would only add smudge/clean
+# overhead to every file operation.
+# If a large binary is introduced later, declare that pattern explicitly, e.g.
+#   *.pak filter=lfs diff=lfs merge=lfs -text
