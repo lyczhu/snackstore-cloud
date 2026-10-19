@@ -1,0 +1,43 @@
+// 订单与商品状态机（当前态）
+// 场景技能: system-modeler；基础技能: graphviz
+// 证据: order-service/.../constant/OrderStatusConstants.java, OrderServiceImpl.java:163-230,
+//       V1__init_order_tables.sql:10（status 注释）, ProductServiceImpl.java:220-262, product V1__init_product_tables.sql:25
+// 说明: 所有流转均为「UPDATE ... WHERE status=X + 影响行数判断」的原子条件更新，代码中不存在 select-then-update 竞态写法
+digraph "lifecycle" {
+    rankdir=LR;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=11, style=filled];
+    edge [fontname="Microsoft YaHei", fontsize=10];
+
+    subgraph cluster_order_status {
+        label="订单 t_order.status";
+        style=rounded; color="#1168BD";
+
+        pending [label="PENDING (0)\n待支付\n创建即为此状态", fillcolor="#FFF3CD"];
+        completed [label="COMPLETED (1)\n已完成\npay_time 落库", fillcolor="#D5E8D4"];
+        cancelled [label="CANCELLED (2)\n已取消", fillcolor="#F8CECC"];
+        deleted [label="逻辑删除 deleted=1\n仅 CANCELLED 可删", fillcolor="#E1D5E7"];
+    }
+
+    subgraph cluster_product_status {
+        label="商品 t_product.status / 库存 stock";
+        style=rounded; color="#2F6B5E";
+
+        off [label="0 下架", fillcolor="#F8CECC"];
+        on [label="1 上架（默认）", fillcolor="#D5E8D4"];
+        stockNode [label="stock 数值\n扣减: WHERE stock>=qty\n回滚: stock += qty", shape=box3d, fillcolor="#DAE8FC"];
+    }
+
+    pending -> completed [label="payOrder\nPATCH /orders/{id}/status?status=1\nWHERE status=0，rows=0 → ORDER_CANNOT_PAY"];
+    pending -> cancelled [label="cancelOrder\nWHERE status=0，rows=0 → ORDER_CANNOT_CANCEL\n随后 batchRollbackStock（失败则整单回滚）"];
+    cancelled -> deleted [label="deleteOrder\nDELETE WHERE status=2"];
+
+    completed -> pending [style=invis];
+    deleted -> pending [style=dashed, color="#999999", label="无：已删除订单不可恢复\n（无退款/重新提交路径）"];
+
+    on -> off [label="updateProductStatus(PATCH /products/{id}/status)\n管理员，发 STATUS_CHANGED 事件"];
+    off -> on [label="同上"];
+
+    on -> stockNode [label="下单扣减 / 取消回滚\n发 STOCK_CHANGED 事件", dir=both];
+    stockNode -> off [style=dashed, color="#999999", label="未知：stock 归零是否自动下架\n代码中未见该规则"];
+}

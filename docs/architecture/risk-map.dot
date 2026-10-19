@@ -1,0 +1,79 @@
+// 风险 × 质量属性 × 架构元素 关系图 — risk-quality-reviewer + graphviz
+// 菱形=风险节点；实线=证据充分（代码/配置直接可见）；虚线=可能性需运行时确认
+// 优先级：P0 元风险 / P1 立即 / P2 计划内
+digraph "risk_map" {
+    rankdir=TB;
+    nodesep=0.5;
+    ranksep=0.85;
+    fontname="Microsoft YaHei";
+    edge [fontname="Microsoft YaHei", fontsize=9];
+    node [fontname="Microsoft YaHei", fontsize=10];
+
+    qa_correct [label="质量属性\n正确性 / 一致性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
+    qa_avail [label="质量属性\n可用性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
+    qa_test [label="质量属性\n可测试性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
+    qa_secure [label="质量属性\n安全性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
+    qa_maint [label="质量属性\n可维护性 / 可演进性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
+
+    R1 [label="R1 P0\n0 测试 + 无 CI\n（30 项已修无回归防线）", shape=diamond, fillcolor="#FFC7CE"];
+    R2 [label="R2 本地收口建议\n网关 actuator 无鉴权可读\n（影响 Medium：仅局域网）", shape=diamond, fillcolor="#FFC7CE"];
+    R3 [label="R3 已登记本地取舍\nNacos 关鉴权且端口发布\n（非本地场景则 Critical）", shape=diamond, fillcolor="#FFE9A8"];
+    R4 [label="R4 P1\n短信通道为控制台实现\n→ 注册链路生产断链", shape=diamond, fillcolor="#FFC7CE"];
+    R5 [label="R5 P1\n扣库存超时窗口无兜底\n（无幂等流水表）", shape=diamond, fillcolor="#FFC7CE"];
+    R6 [label="R6 P1\n契约复制已漂移\nstatus→null 即全站下单失败", shape=diamond, fillcolor="#FFC7CE"];
+    R11 [label="R11 P1\ndocs/ 与 AGENTS.md 未被 git 跟踪\n权威依据不可见", shape=diamond, fillcolor="#FFC7CE"];
+    R7 [label="R7 P2\n路由 order 与鉴权模式人肉同步", shape=diamond, fillcolor="#FFF2CC"];
+    R8 [label="R8 P2\nSQL 字面量 status=1 与常量脱钩", shape=diamond, fillcolor="#FFF2CC"];
+    R9 [label="R9 P2\nproduct fanIn=3 单点 + 统计无部分降级", shape=diamond, fillcolor="#FFF2CC"];
+    R10 [label="R10 P2\n重建先全删索引 / 别名人工切 / ES 版本未对齐", shape=diamond, fillcolor="#FFF2CC"];
+    R12 [label="R12 P2\n库存写接口挂公开面（契约不对称）", shape=diamond, fillcolor="#FFF2CC"];
+
+    gw_n [label="api-gateway", fillcolor="#DAE8FC"];
+    prod_n [label="product-service", fillcolor="#D5E8D4"];
+    order_n [label="order-service", fillcolor="#DAE8FC"];
+    user_n [label="user-service", fillcolor="#D5E8D4"];
+    search_n [label="product-search-service", fillcolor="#DAE8FC"];
+    stats_n [label="statistics-service", fillcolor="#DAE8FC"];
+    common_n [label="common（6/6 依赖）", fillcolor="#FFE8CC"];
+    cfg_n [label="nacos-config + docker-compose", fillcolor="#E1D5E7"];
+    docs_n [label="docs/（审查报告、补偿方案）", fillcolor="#F8CECC"];
+
+    ctx [label="部署前提（用户确认 2026-10-19）\n仅本地 + 单实例\n⇒ R2 降 Medium、R3 降取舍、S4 不加锁", shape=note, fillcolor="#E1D5E7", color="#6B7280"];
+    ctx -> R2 [style=dotted, color="#6B7280", label="定级依据"];
+    ctx -> R3 [style=dotted, color="#6B7280"];
+
+    qa_test -> R1 [color="#C0392B"];
+    qa_correct -> R5 [color="#C0392B"];
+    qa_correct -> R6 [color="#C0392B"];
+    qa_correct -> R8 [color="#C0392B"];
+    qa_correct -> R4 [color="#C0392B", label="业务路径"];
+    qa_secure -> R2 [color="#C0392B"];
+    qa_secure -> R3 [color="#C0392B"];
+    qa_avail -> R9 [color="#C0392B"];
+    qa_avail -> R10 [color="#C0392B"];
+    qa_maint -> R7 [color="#C0392B"];
+    qa_maint -> R11 [color="#C0392B"];
+    qa_maint -> R12 [color="#C0392B"];
+    qa_maint -> R1 [color="#C0392B", style=dashed, label="放大所有其它风险"];
+
+    R1 -> order_n [style=dashed];
+    R1 -> prod_n [style=dashed];
+    R2 -> gw_n [color="#C0392B"];
+    R3 -> cfg_n [color="#C0392B"];
+    R7 -> cfg_n [color="#C0392B"];
+    R7 -> gw_n [color="#C0392B"];
+    R4 -> user_n [color="#C0392B"];
+    R5 -> order_n [color="#C0392B"];
+    R5 -> prod_n [color="#C0392B"];
+    R6 -> common_n [color="#C0392B"];
+    R6 -> order_n [color="#C0392B"];
+    R6 -> prod_n [color="#C0392B"];
+    R8 -> order_n [color="#C0392B"];
+    R8 -> stats_n [color="#C0392B"];
+    R9 -> prod_n [color="#C0392B"];
+    R9 -> stats_n [color="#C0392B"];
+    R10 -> search_n [style=dashed, color="#B45309", label="可能性需运行时确认"];
+    R12 -> prod_n [color="#C0392B"];
+    R12 -> order_n [color="#C0392B"];
+    R11 -> docs_n [color="#C0392B"];
+}

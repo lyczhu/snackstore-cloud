@@ -1,0 +1,83 @@
+// 依赖与契约图：编译期依赖 + 运行时调用契约 + 配置面
+// 场景技能: system-modeler；基础技能: graphviz（dense，rankdir=TB）
+// 证据: 各模块 pom.xml（common 依赖）、@FeignClient 声明、*InternalController、nacos-config/*
+// 读法: 三个 cluster 分别是编译期、运行时、配置运行面；同一对服务可能有多条不同类型边，类型已在 label 标明
+digraph "dependencies" {
+    rankdir=TB;
+    nodesep=0.5;
+    ranksep=0.9;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=11, style=filled, fillcolor="#F5F7FA", color="#4B5563"];
+    edge [fontname="Microsoft YaHei", fontsize=9];
+
+    subgraph cluster_compile {
+        label="编译期：共享库 common（6/6 模块依赖）";
+        style=rounded; color="#B45309";
+        common [label="common (jar)\nResult / PageResult / ResultCode\nJwtUtil / AuthConstants\nProductSearchSyncMessage（事件 DTO）\nProductSearchItemDTO（同步拉取契约）\nProductSearchDTO（搜索入参）", fillcolor="#FFE8CC"];
+    }
+
+    subgraph cluster_runtime {
+        label="运行时服务";
+        style=rounded; color="#1168BD";
+        gw [label="api-gateway"];
+        usr [label="user-service\n:8081"];
+        prod [label="product-service\n:8082"];
+        ord [label="order-service\n:8083"];
+        srch [label="product-search-service\n:8085"];
+        stat [label="statistics-service\n:8087"];
+    }
+
+    subgraph cluster_contract {
+        label="被调方暴露的接口面";
+        style=rounded; color="#2F6B5E";
+        pubProd [label="公开面 ProductController\nGET /products, /products/{id}, /products/?ids=\nPOST/PUT/DELETE /products（admin）\nPOST /products/**/stock/**（扣减/回滚）", fillcolor="#DAE8FC"];
+        intProd [label="内部面 ProductInternalController\nGET /internal/products（重建分页拉取）\nPOST /internal/products/search/fallback\nGET /internal/products/count|/category-map|/categories", fillcolor="#D5E8D4"];
+        intOrder [label="内部面 OrderInternalController\nGET /internal/orders/statistics|/trend|/top/products", fillcolor="#D5E8D4"];
+        intUser [label="内部面 UserInternalController\nGET /internal/users/count", fillcolor="#D5E8D4"];
+    }
+
+    subgraph cluster_config {
+        label="配置与治理面";
+        style=rounded; color="#6B7280";
+        nacos [label="Nacos public 命名空间\nnacos-config/<service>.yml + 共享 application.yml\napi-gateway-routes.yml（路由热刷新）", shape=ellipse, fillcolor="#E1D5E7"];
+        shared [label="共享 application.yml 被 5/6 服务 optional 导入\n（api-gateway 刻意不导入，自持 actuator 配置）", shape=note, fillcolor="#FFF2CC"];
+        sentinel [label="Sentinel\n网关 gw-flow + degrade 规则\n基线在 nacos-config/sentinel/，需手工建到 Nacos\nfeign.sentinel.enabled=true → fallbackFactory 必须是 @Component", shape=note, fillcolor="#FFF2CC"];
+        compose [label="docker-compose\nMySQL/Redis/Nacos/Kafka/ES/Kibana + 6 服务\n下游端口仅绑 127.0.0.1（防绕过网关直连）", shape=note, fillcolor="#FFF2CC"];
+    }
+
+    # 编译期依赖
+    gw -> common [label="compile-time", style=dashed];
+    usr -> common [label="compile-time", style=dashed];
+    prod -> common [label="compile-time", style=dashed];
+    ord -> common [label="compile-time", style=dashed];
+    srch -> common [label="compile-time", style=dashed];
+    stat -> common [label="compile-time", style=dashed];
+
+    # 运行时调用契约（调用方各自定义 Feign 接口，无共享契约模块）
+    ord -> pubProd [label="ProductClient（自建契约）\ngetProductsByIds / batchDeductStock / batchRollbackStock", color="#C0392B"];
+    srch -> intProd [label="ProductDataClient\nlistForSearch / searchFallback", color="#2F6B5E"];
+    stat -> intOrder [label="OrderClient + fallbackFactory", color="#2F6B5E"];
+    stat -> intProd [label="ProductClient + fallbackFactory", color="#2F6B5E"];
+    stat -> intUser [label="UserClient + fallbackFactory", color="#2F6B5E"];
+    gw -> usr [label="routes /api/users|auth|admin", color="#1168BD"];
+    gw -> prod [label="routes /api/products/** order=1", color="#1168BD"];
+    gw -> ord [label="routes /api/orders/** order=2", color="#1168BD"];
+    gw -> srch [label="routes /api/product-search/** order=0", color="#1168BD"];
+    gw -> stat [label="routes /api/statistics/** order=3", color="#1168BD"];
+
+    # 契约不对称：订单走公开面（含库存写），搜索/统计走内部面
+    pubProd -> intProd [label="同一服务两套接口面\n订单调用未走 /internal/**（契约不对称）", style=dashed, color="#C0392B"];
+
+    # 配置面
+    nacos -> shared [label="共享配置", style=dotted];
+    nacos -> sentinel [label="规则 data-id/group", style=dotted];
+    gw -> nacos [label="路由 + 白名单热刷新", color="#6B7280"];
+    prod -> nacos [label="注册 + 配置", style=dotted, color="#6B7280"];
+    ord -> nacos [label="注册 + 配置", style=dotted, color="#6B7280"];
+    srch -> nacos [label="注册 + 配置", style=dotted, color="#6B7280"];
+    stat -> nacos [label="注册 + 配置", style=dotted, color="#6B7280"];
+    usr -> nacos [label="注册 + 配置", style=dotted, color="#6B7280"];
+
+    # 已知未使用/待验证
+    ord -> compose [label="依赖 redis starter 且 compose 注入 Redis 环境变量，\n但代码中未见 Redis 使用（低置信，需确认是否死配置）", style=dashed, color="#999999"];
+}

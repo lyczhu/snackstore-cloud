@@ -1,0 +1,75 @@
+// 下单端到端业务流（当前态）
+// 场景技能: system-modeler + flow 视图；基础技能: graphviz（dense flow，rankdir=TB）
+// 证据: order-service/.../OrderServiceImpl.java:50-211, product-service/.../ProductServiceImpl.java:270-336,
+//       api-gateway/.../JwtAuthFilter.java:54-104, order-service/.../V1__init_order_tables.sql
+// 实线 = 代码已证实；虚线 = 文档记录的已知遗留风险/待验证
+digraph "order_checkout_flow" {
+    rankdir=TB;
+    nodesep=0.45;
+    ranksep=0.7;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=11, style=filled, fillcolor="#F5F7FA", color="#4B5563"];
+    edge [fontname="Microsoft YaHei", fontsize=10];
+
+    shopper [label="顾客\n(已登录，持有 JWT)", shape=ellipse, fillcolor="#08427B", fontcolor="#FFFFFF"];
+    admin [label="管理员\n(下架商品/改价)", shape=ellipse, fillcolor="#08427B", fontcolor="#FFFFFF"];
+
+    subgraph cluster_gateway {
+        label="信任边界：网关是唯一身份签发点";
+        style=rounded; color="#C0392B";
+        jwt [label="JwtAuthFilter\n校验 JWT + Redis token:{userId}\n注入 X-User-Id / X-Username / X-User-Role"];
+        strip [label="白名单路径\n剥离客户端伪造的 X-User-* 头"];
+    }
+
+    subgraph cluster_order {
+        label="order-service（订单数据所有者）";
+        style=rounded; color="#1168BD";
+        create [label="POST /api/orders\nOrderController.createOrder\nuserId 来自 X-User-Id 头"];
+        buildItems [label="buildOrderItems\n拉取商品 → 校验 status!=0（未下架）\n用返回价格计算金额（不信任前端价）"];
+        insertOrder [label="落库（本地事务内）\norder_no = IdWorker.getIdStr()\nt_order status=PENDING(0) + t_order_item\nitem 快照 name/image/price"];
+        pay [label="PATCH /orders/{id}/status?status=1\nUPDATE ... WHERE status=0 → 1\n原子条件更新，rows==0 判失败"];
+        cancel [label="PATCH /orders/{id}/status?status=2\nUPDATE ... WHERE status=0 → 2"];
+        rollback [label="batchRollbackStock\nstock = stock + qty"];
+        del [label="DELETE /orders/{id}\nUPDATE/DELETE WHERE status=2\n仅已取消订单可删"];
+    }
+
+    subgraph cluster_product {
+        label="product-service（库存与商品主数据所有者）";
+        style=rounded; color="#2F6B5E";
+        getByIds [label="GET /products/?ids=\nProductController（公开路径）"];
+        deduct [label="POST /products/stock/batch-deductions\n预检查 + UPDATE ... WHERE stock>=qty\n失败抛 STOCK_NOT_ENOUGH → 事务回滚"];
+        stockDb [label="snackstore_product.t_product.stock", shape=cylinder, fillcolor="#2F6B5E", fontcolor="#FFFFFF"];
+        event [label="@TransactionalEventListener(AFTER_COMMIT)\nProductChangedListener\n→ Kafka product-changed（重试 5 次）"];
+    }
+
+    subgraph cluster_data {
+        label="数据落点";
+        style=rounded; color="#6B7280";
+        orderDb [label="snackstore_order\nt_order / t_order_item", shape=cylinder, fillcolor="#6B7280", fontcolor="#FFFFFF"];
+        searchIdx [label="ES product_v1（别名 product）\n库存/状态最终一致", shape=cylinder, fillcolor="#2F6B5E", fontcolor="#FFFFFF"];
+    }
+
+    leakRisk [label="未知/已登记风险\nFeign 超时但 product 侧已扣减成功\n→ 本地事务回滚，库存不回滚\n（无 stock_deduction_log，补偿方案未实施）\n见 docs/库存补偿方案.md",
+        shape=note, fillcolor="#FFF3CD", color="#C0392B"];
+
+    shopper -> jwt -> create;
+    shopper -> strip [style=dashed, label="匿名浏览/搜索"];
+
+    create -> buildItems -> getByIds [label="OpenFeign 同步调用\n（绕过网关，无鉴权）"];
+    buildItems -> insertOrder;
+    insertOrder -> deduct [label="batchDeductStock\n(orderNo + items)"];
+    deduct -> stockDb [label="写: stock -= qty"];
+    deduct -> event [label="发布 STOCK_CHANGED", style=dashed];
+    event -> searchIdx [label="product-search 消费\n手动 ACK / DLT", style=dashed];
+
+    insertOrder -> orderDb [label="写: status=0"];
+    insertOrder -> pay;
+    shopper -> pay;
+    shopper -> cancel;
+    cancel -> rollback -> stockDb [label="写: stock += qty"];
+    admin -> stockDb [label="人工改库存（非订单路径）", style=dashed];
+    shopper -> del;
+
+    deduct -> leakRisk [style=dashed, color="#C0392B", label="超时/网络失败"];
+    leakRisk -> stockDb [style=dashed, color="#C0392B", label="已扣减但订单不存在"];
+}

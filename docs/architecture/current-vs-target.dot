@@ -1,0 +1,61 @@
+// 现状 vs 目标态 — evolution-planner + graphviz
+// 实线蓝框 = current（已验证代码事实）；虚线橙框 = target/proposed（来自 docs/库存补偿方案.md，尚未实现）
+// ⚠️ 目标节点不代表已存在；每条 target 边的 label 用 would/needs，不用已完成动词
+digraph "current_vs_target" {
+    rankdir=TB;
+    nodesep=0.55;
+    ranksep=0.95;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=10, style=filled, fillcolor="#F5F7FA"];
+    edge [fontname="Microsoft YaHei", fontsize=9];
+
+    subgraph cluster_current {
+        label="current（证据已核对）";
+        style=rounded; color="#1168BD";
+        c_create [label="createOrder\n@Transactional 内远程扣库存\nOrderServiceImpl:51-79", fillcolor="#DAE8FC"];
+        c_deduct [label="batchDeductStock / batchRollbackStock\n仅 stock±qty 条件更新，非幂等\nProductServiceImpl:270-336", fillcolor="#DAE8FC"];
+        c_stock [label="t_product.stock", shape=cylinder, fillcolor="#2F6B5E", fontcolor="#FFFFFF"];
+        c_order [label="t_order（status 0/1/2 + deleted）\n无 stock_confirm 字段", shape=cylinder, fillcolor="#2F6B5E", fontcolor="#FFFFFF"];
+        c_leak [label="泄漏路径（已确认存在）\n超时 → 本地回滚，product 侧可能已提交\n无流水、无对账、无兜底", fillcolor="#FFC7CE", color="#C0392B"];
+        c_notest [label="0 测试 / 无 CI\n改动无法自证未改坏", fillcolor="#FFC7CE", color="#C0392B"];
+        c_ctx [label="部署前提（2026-10-19 用户确认）\n仅本地使用 + 当前单实例\n→ 影响 R2/R3 定级与 S4 是否加锁", shape=note, fillcolor="#FFE0B2", color="#B45309"];
+
+        c_create -> c_deduct [label="Feign 同步调用"];
+        c_deduct -> c_stock [label="写 stock"];
+        c_create -> c_order [label="写订单"];
+        c_create -> c_leak [color="#C0392B", label="超时分支"];
+        c_leak -> c_stock [color="#C0392B", label="已扣但订单不存在"];
+    }
+
+    subgraph cluster_target {
+        label="target / proposed（方案 C，未实施）";
+        style=rounded; color="#B45309";
+        t_log [label="[target] V4 迁移\nstock_deduction_log\n唯一键 (order_no, product_id)\nstatus DEDUCTED/ROLLED_BACK", shape=cylinder, fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_idem [label="[target] 幂等扣减/回滚\n同一 orderNo 重复调用返回既有结果\n回滚已 ROLLED_BACK 则 no-op", fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_status [label="[target] GET /internal/stock/deduction/status\nNONE / DEDUCTED / ROLLED_BACK", fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_flag [label="[target] V2 迁移 t_order.stock_confirm\n旁路字段，状态机 0/1/2 不变", shape=cylinder, fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_branch [label="[target] createOrder 异常分流\n业务失败→回滚\n超时→提交并置 0（需开关）", fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_recon [label="[target] 定时对账（5min）\nDEDUCTED→置1 / NONE→幂等重试 / 3 次失败→现有 cancelOrder", fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_lock [label="[target 可省] Redis 分布式锁\n已确认单实例；且 S1 幂等后并发只浪费调用\n不产生错误数据 → 扩容前必补", fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_gauge [label="[target] stuck 订单 gauge + 告警", fillcolor="#FFF2CC", color="#B45309", style="dashed,filled"];
+        t_gate [label="[前置闸门 S0] 特征化测试 + CI\n（非新增功能，是其它片的前提）", fillcolor="#D5E8D4", color="#2F6B5E", style="dashed,filled"];
+    }
+
+    c_deduct -> t_idem [style=dashed, color="#B45309", label="would become"];
+    t_idem -> t_log [style=dashed, color="#B45309", label="would write 同事务"];
+    t_log -> t_status [style=dashed, color="#B45309", label="would expose"];
+    c_order -> t_flag [style=dashed, color="#B45309", label="would add column"];
+    c_create -> t_branch [style=dashed, color="#B45309", label="would change failure semantics"];
+    t_branch -> t_flag [style=dashed, color="#B45309"];
+    t_status -> t_recon [style=dashed, color="#B45309", label="would read"];
+    t_recon -> t_idem [style=dashed, color="#B45309", label="would retry（依赖幂等成立）"];
+    t_recon -> t_lock [style=dashed, color="#B45309"];
+    t_recon -> t_gauge [style=dashed, color="#B45309"];
+    t_gate -> t_idem [style=dashed, color="#2F6B5E", label="must precede"];
+    t_gate -> t_branch [style=dashed, color="#2F6B5E", label="must precede"];
+    c_notest -> t_gate [style=dashed, color="#C0392B", label="催生 S0 闸门"];
+    c_ctx -> t_lock [style=dotted, color="#B45309", label="决定不加锁"];
+
+    open_q [label="[待决断] 产品是否接受\n「先返回成功、稍后自动取消」的用户感知\n不接受 → 降级为 S0+S1+S2+人工对账 SOP", shape=note, fillcolor="#FFE0B2", color="#C0392B"];
+    t_branch -> open_q [style=dotted, color="#C0392B", label="blocking decision"];
+}
