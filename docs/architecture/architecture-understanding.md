@@ -17,8 +17,8 @@
 | 角色 | 能做什么 | 边界证据 |
 |---|---|---|
 | 顾客（USER） | 注册/登录/登出、收货地址、浏览与搜索商品、下单、支付（状态标记）、取消、删除已取消订单 | `nacos-config/api-gateway-routes.yml` 的 order 0–3 五条路由；`AuthController` / `AddressController` / `OrderController` |
-| 管理员（ADMIN） | 商品与分类增删改查、上下架、用户启禁用、统计看板、手动重建搜索索引 | `nacos-config/api-gateway.yml` 的 `admin-prefix-patterns` + `admin-only-patterns`；`ProductController#assertAdmin`、`StatisticsController#assertAdmin`、`AdminUserController` |
-| 匿名访问者 | 浏览/搜索商品、查商品变更快照、读 OpenAPI 文档 | `nacos-config/api-gateway.yml` 的 `whitelist`：`GET:/api/products/**`（含 `/products/snapshots`，控制器内**无** `assertAdmin`）、`GET:/api-docs/*/v3/api-docs` |
+| 管理员（ADMIN） | 商品与分类增删改查、上下架、用户启禁用、**管理员建号**、**商品变更快照查询**、统计看板、手动重建搜索索引 | `nacos-config/api-gateway.yml` 的 `admin-prefix-patterns` + `admin-only-patterns`；`ProductController#assertAdmin`、`ProductSnapshotController#assertAdmin`、`StatisticsController#assertAdmin`、`AdminUserController#assertAdmin` |
+| 匿名访问者 | 浏览/搜索商品、读 OpenAPI 文档 | `nacos-config/api-gateway.yml` 的 `whitelist`：`GET:/api/products/**`、`GET:/api-docs/*/v3/api-docs`；**不自助注册**（`POST:/api/auth/register` / `sms-code` 已从白名单撤下，D7） |
 
 **系统当前不具备的能力**（无实体/迁移/接口证据）：购物车、优惠券与促销、真实支付渠道与退款、物流与履约、多租户/店铺/组织隔离。这是「单体电商最小闭环」，不是完整电商平台。
 
@@ -32,7 +32,7 @@
 | 收货地址 | user-service | snackstore_user（t_address，`is_default` 原子清默认） |
 | 商品主数据与分类 | product-service | snackstore_product（t_product / t_product_category） |
 | 库存（扣减/回滚） | product-service（唯一所有者） | snackstore_product.stock |
-| 商品变更留痕（快照写入 + 查询） | product-service | snackstore_product.t_product_snapshot（V2/V3 迁移）；查询面 `GET /products/snapshots[/{id}]` 走商品 GET 白名单 → **匿名可读** |
+| 商品变更留痕（快照写入 + 查询） | product-service | snackstore_product.t_product_snapshot（V2/V3 迁移）；查询面 `GET /products/snapshots[/{id}]` **仅管理员**（D8：admin-only 优先于白名单 + 控制器第二层断言） |
 | 商品全文检索 | product-search-service | ES 索引 product_v1（别名 product） |
 | 交易（下单/支付/取消/删除） | order-service | snackstore_order（t_order / t_order_item） |
 | 经营统计（看板/趋势/TOP 商品/TOP 分类） | statistics-service | 无自有库，只读聚合 + Redis db3 缓存 |
@@ -43,9 +43,9 @@
 
 ## 3. 服务拓扑与关键设计取舍（L2）
 
-**（1）单一入口 + 头信任模型。** 网关 `JwtAuthFilter`（order=-1）验证 JWT 后注入 `X-User-Id / X-Username / X-User-Role`，下游服务**不再验签**，直接把这些头当身份用（`OrderController.java:27`、`ProductController.java:45`）。因此「下游端口只绑 127.0.0.1」是这套模型的必要配套（`docker-compose.yml:174-175,208,242,270,301`），白名单路径还要剥离客户端伪造的身份头（`JwtAuthFilter.java:58-60,123-139`）。信任边界由此非常清晰：**网关 = 唯一的身份签发点**。
+**（1）单一入口 + 头信任模型。** 网关 `JwtAuthFilter`（order=-1）验证 JWT 后注入 `X-User-Id / X-Username / X-User-Role`，下游服务**不再验签**，直接把这些头当身份用（`OrderController.java:27`、`ProductController.java:45`）。因此「下游端口只绑 127.0.0.1」是这套模型的必要配套（`docker-compose.yml:174-175,208,242,270,301`），白名单路径还要剥离客户端伪造的身份头（`JwtAuthFilter.java:58-60,123-139`）。**2026-10-19 起：白名单与 admin-only 重叠时以 admin-only 为准**（否则 `/api/products/**` 会吞掉快照类管理接口）。信任边界由此非常清晰：**网关 = 唯一的身份签发点**。
 
-**（2）鉴权是双层的。** 网关用 `admin-prefix-patterns` / `admin-only-patterns` 做粗粒度拦截，服务内再用 `assertAdmin(role)` 二次断言（商品、统计）。这不是冗余——服务可被内网直连，第二层是纵深防御。
+**（2）鉴权是双层的。** 网关用 `admin-prefix-patterns` / `admin-only-patterns` 做粗粒度拦截，服务内再用 `assertAdmin(role)` 二次断言（商品、商品快照、统计、用户管理）。这不是冗余——服务可被内网直连，第二层是纵深防御。
 
 **（3）配置面完全外置。** 各模块 `application.yml` 只做 Nacos bootstrap，真实配置（端口、路由、DB URL、Sentinel 规则、白名单）在 `nacos-config/`；网关路由更进一步，由 `NacosRouteDefinitionRepository` 直接读取并监听，**改路由不需重启**（`api-gateway-routes.yml:1-12`）。这带来一个高频踩坑：改 `nacos-config/` 后重新编译或重启**不会**生效，必须走 Nacos 刷新。
 

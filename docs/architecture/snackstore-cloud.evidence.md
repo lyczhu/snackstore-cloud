@@ -77,10 +77,11 @@
 
 | 主张 | 类型 | 置信度 | sourceRefs |
 |---|---|---|---|
-| 25 个测试类 / 194 例纯单元测试覆盖 7 个模块，全 reactor 绿 | 验证能力 | high | `*/src/test/java/**/*Test.java`；`.\mvnw.cmd -B -ntp test` 实测：common 43 / api-gateway 25 / user 30 / product 29 / product-search 32 / order 16 / statistics 19，`BUILD SUCCESS` |
+| 25 → 27 个测试类 / 194 → 203 例纯单元测试覆盖 7 个模块，全 reactor 绿 | 验证能力 | high | `*/src/test/java/**/*Test.java`；`.\mvnw.cmd -B -ntp test` 实测（2026-10-19 实施 D7/D8 后）：common 44 / api-gateway 27 / user 33 / product 32 / product-search 32 / order 16 / statistics 19，`BUILD SUCCESS` |
 | CI 存在且含打包检查 | 交付流水线 | high | `.github/workflows/maven.yml`（JDK 25 zulu；`mvn -B -ntp test` + `mvn -B -ntp package -DskipTests`；push/PR to `main` + `workflow_dispatch`） |
 | `docs/` 已入库，仅中间审查结果忽略 | 知识资产 | high | `git ls-files docs` = 18 个文件；`.gitignore` 仅新增 `docs/系统审查报告*` |
-| 商品快照可查（非只有表） | 功能面 | high | `product-service/.../controller/ProductSnapshotController.java`（`/products/snapshots`、`/{id}`），**未**调用 `assertAdmin` → 走 `GET:/api/products/**` 白名单时匿名可读 |
+| 商品快照可查（非只有表）且**仅管理员** | 功能面 | high | `product-service/.../controller/ProductSnapshotController.java`（`/products/snapshots`、`/{id}`，含 `assertAdmin`）；网关 `admin-only-patterns` 两条 + `JwtAuthFilter` 的 admin-only 优先于白名单（决策 D8，2026-10-19） |
+| 自助注册已关闭，开号走管理员接口 | 功能面 | high | `nacos-config/api-gateway.yml` 白名单无 register/sms-code；`AdminUserController#createUser`（`POST /admin/users`）+ `UserManagementDomainService#createUser`（决策 D7） |
 
 ## 明确的未知项（建议后续验证）
 

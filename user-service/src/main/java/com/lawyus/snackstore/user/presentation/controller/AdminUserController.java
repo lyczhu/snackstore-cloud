@@ -3,6 +3,7 @@ package com.lawyus.snackstore.user.presentation.controller;
 import com.lawyus.snackstore.common.constant.AuthConstants;
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.common.response.Result;
+import com.lawyus.snackstore.user.application.dto.AdminUserCreateCommand;
 import com.lawyus.snackstore.user.application.dto.UserUpdateCommand;
 import com.lawyus.snackstore.user.application.service.UserApplicationService;
 import com.lawyus.snackstore.user.application.vo.UserViewVO;
@@ -11,6 +12,7 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -33,6 +35,17 @@ public class AdminUserController {
                                           @RequestHeader(AuthConstants.HEADER_USER_ROLE) String role) {
         assertAdmin(role);
         return Result.success(userApplicationService.getUserById(id));
+    }
+
+    /**
+     * 管理员建号：内测期自助注册已关闭（决策 D7），这是唯一的开号入口。
+     * 网关 `/api/admin/**` 已限制管理员，这里是第二层断言（服务可被内网直连）。
+     */
+    @PostMapping
+    public Result<UserViewVO> createUser(@RequestHeader(AuthConstants.HEADER_USER_ROLE) String role,
+                                         @Valid @RequestBody AdminUserCreateCommand command) {
+        assertAdmin(role);
+        return Result.success(userApplicationService.createUser(command));
     }
 
     @PutMapping("/{id}")

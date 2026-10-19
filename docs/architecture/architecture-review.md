@@ -80,6 +80,7 @@
 - 影响面：新用户获取只能靠「运维从日志读码」或直接用种子管理员。
 - **验收标准**：要么接入真实通道并加 `@Profile("!dev")` 强制校验存在性实现，要么在产品层面明确「注册仅内测」并把注册入口对外关闭。二者必居其一，不能停在 unknown。
 > **2026-10-19 拍板（D7）**：暂无真实通道 → **走内测分支**：撤下 `register` 与 `sms-code` 白名单（无 token → 401），保留 `login`/`admin-login`；另需定开号路径（`AdminUserController` 无建号接口，见 D-Open-5）。「接真实通道」分支保留为失效条件，不是否定。
+> **2026-10-19 已实施**：两项白名单已撤下；开号路径已补为 `POST /api/admin/users`（admin-only、BCrypt、角色缺省 USER），D-Open-5 关闭。回归：203 例全绿。
 
 **R5 库存扣减的超时窗口无兜底（H6 残余）｜影响 Medium-High｜可能性 Low｜置信度 High**
 `OrderServiceImpl.createOrder`（`:51-79`）在本地事务内远程扣库存；超时异常 → 本地回滚，但 product 侧可能已提交。`product-service` 迁移仅 V1–V3，**无 `stock_deduction_log`、扣减无 `order_no` 幂等约束** → 补偿动作本身也会重复生效。方案 C 已批准未实施（`docs/库存补偿方案.md`，状态「方案讨论稿，未实施」）。
@@ -110,6 +111,11 @@
 `AggregateRoot.getDomainEvents()` 返回 `Collections.unmodifiableList(domainEvents)`（`:17-19`）——是内部列表的**视图而非快照**；`clearDomainEvents()` 清空同一底层列表（`:21-23`）。当前 `SpringDomainEventPublisher.publishAll` 立即遍历所以安全，但任何「先收集、提交后再发布」或异步化的改动都会读到空列表，导致事件静默丢失且无编译错误。写测试时已踩到（`ArgumentCaptor` 捕到的 list 最终为空）。
 - **修复方向**：`getDomainEvents()` 返回 `List.copyOf(domainEvents)`，或发布方法改为变参/流式逐条发布。属单文件改动，但会让现有「取两次 getDomainEvents」的写法需要复查。
 - **验证信号**：新增一条测试：publishAll 后立即 clearDomainEvents，断言已捕获的事件快照仍非空（现已在 `UserAuthenticationDomainServiceTest` 以 doAnswer 快照形式存在）。
+
+**R14 商品变更快照匿名可读（2026-10-19 复核发现，已修复）｜影响 Medium｜可能性 Certain（修复前）｜置信度 High**
+`ProductSnapshotController` 原本既无 `assertAdmin`，又落在 `GET:/api/products/**` 白名单下（该白名单先于任何鉴权判定）→ 未登录即可读价格/库存变更史。
+- **修复（决策 D8）**：`JwtAuthFilter` 改为 **admin-only 优先于白名单**；`api-gateway.yml` 新增 `GET:/api/products/snapshots`、`/**` 两条 admin-only；控制器补第二层 `assertAdmin`（缺角色头也拒）。
+- **回归防线**：`JwtAuthFilterTest#snapshotRequiresAdminDespiteProductWhitelist`（401/403/200 三态）+ `ProductSnapshotControllerTest`（3 例）。
 
 ### 单实例前提带出的三个连带结论（2026-10-19）
 

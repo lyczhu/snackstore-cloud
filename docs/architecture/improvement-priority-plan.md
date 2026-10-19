@@ -1,7 +1,7 @@
 # Snackstore Cloud 系统改进优先级计划（2026-10-19）
 
 - **依据**：[`architecture-review.md`](./architecture-review.md)（R1–R13，含 2026-10-19 复核更新：R1 由 P0 降 P1、R11 闭环）、[`migration-roadmap.md`](./migration-roadmap.md)（S0–S5）、[`decision-map.md`](./decision-map.md)（D1–D6）、[`violations.csv`](./violations.csv)、[`dependency-impact-findings.md`](./dependency-impact-findings.md)
-- **基线**：HEAD `159b3d4`；25 个测试类 / 194 例单元测试 + Maven CI（test + package）已就位
+- **基线**：HEAD `159b3d4` 之后的实施提交（未提交工作区）；**27 个测试类 / 203 例单元测试**（2026-10-19 实施 D7/D8 后，原 194）+ Maven CI（test + package）已就位
 - **排序口径**：先「能否马上关账」、再「失败后果有多静默」、最后「重构收益」；同等后果下优先低成本、可回滚的动作
 - **硬约束（不可协商）**：仅本地单机单实例（用户确认，见 review §4）；不引入分布式协调；目标态一律标注「目标/建议」，不与现状混写
 - **拍板状态（2026-10-19）**：B1 = 内测（关注册）、B3 = 快照需鉴权、D9 = 仅本机（A1 降为可选）；**仅 B2（库存写接口迁移）待定**。决策记录见 [`decision-map.md`](./decision-map.md) 的 D7–D9。
@@ -24,9 +24,9 @@
 | | A4 | `OrderMapper` 两段 SQL 的 `status = 1` 改为引用 `OrderStatusConstants.COMPLETED` 拼接 | R8 | 20 min | 编译通过、统计单测绿、`grep "status = 1"` 归零 |
 | | A5 | 扩展 `common` 的 `NacosConfigContractTest`：路由 order 约束（search 0 < products 1）、stock 写路径必须在 `admin-only-patterns`、白名单不得含写方法 | R7 / D6 | 2 h | 故意调换 order 或删一条 admin-only → 测试红 |
 | | A6 | 契约快照测试：断言 product 侧 `ProductVO` 响应字段集 = order 侧副本所需字段集（含 `status`/`price`） | R6 | 3 h | 改名/删字段 → 测试红并打印字段差 |
-| **B 决策**（0.5–2.5 天） | B1 ✅已决 | **注册仅内测**（D7）：whitelist 撤下 `POST:/api/auth/register` 与 `POST:/api/auth/sms-code`，保留 login/admin-login；同时定开号路径（D-Open-5） | R4 | 0.5 h（配置）+ 0.5 d（建号接口，可选） | 无 token 调 register/sms-code → 401；login/admin-login 正常；开号路径可用 |
+| **B 决策**（0.5–2.5 天） | B1 ✅已实施 | **注册仅内测**（D7）：whitelist 已撤下 register/sms-code；开号路径 `POST /api/admin/users`（admin-only、BCrypt、角色缺省 USER） | R4 / D-Open-5 | 已完成 | 无 token 调 register/sms-code → 401；login/admin-login 仍匿名可用；建号接口有 3 例不变量测试 |
 | | B2 ⏳待定 | 库存写接口去留（迁 `/internal/**`）拍板，**与 S2 同期发布** | R12 / D6 | 0.5 d 评估 | 决策写入 `decision-map.md`；否决则维持 A5 的覆盖测试 |
-| | B3 ✅已决 | **快照需鉴权（ADMIN）**（D8）：让 `requiresAdmin` 先于 `isWhiteListed`，再把 `GET:/api/products/snapshots`、`/**` 加进 admin-only-patterns | R14（新） | 0.5 d | 无 token 401 / USER 403 / ADMIN 200；`GET /api/products/1` 仍匿名 200 |
+| | B3 ✅已实施 | **快照需鉴权（ADMIN）**（D8）：`requiresAdmin` 已先于 `isWhiteListed`；两条 admin-only pattern 已生效；控制器第二层 `assertAdmin` | R14（新） | 已完成 | 无 token 401 / USER 403 / ADMIN 200；`GET /api/products/1` 仍匿名 200 |
 | **C 一致性主线**（4–6 天） | C1 | **S0-b 最小集成层**：compose MySQL + product-service 真库用例（原子扣减、幂等前置、`OrderMapper` 口径） | R1 残余 | 1–2 d | 真库可验「扣减/回滚/统计只计 status=1」 |
 | | C2 | S1：`stock_deduction_log`（V4）+ 按 `order_no` 幂等 | R5 | 1 d | 同单号重复扣/回滚各只生效一次 |
 | | C3 | S2：`GET /internal/stock/deduction/status` 三态查询 | R5 | 0.5 d | 查询结果与流水一致 |
@@ -55,7 +55,7 @@
 
 | Gate | 何时算过 | 不通过则 |
 |---|---|---|
-| **G1（A 阶段）** | `./mvnw -B -ntp test` 全绿（194 例基线不回退）；A5/A6 各做一次「故意破坏 → 红 → 恢复 → 绿」演练；4 条 R2 旁证 curl 结果记录进 review §4；`docker compose config` 显示回环绑定 | 不进入 B/C，避免在无防线状态下改业务语义 |
+| **G1（A 阶段）** | `./mvnw -B -ntp test` 全绿（203 例基线不回退）；A5/A6 各做一次「故意破坏 → 红 → 恢复 → 绿」演练；4 条 R2 旁证 curl 结果记录进 review §4；`docker compose config` 显示回环绑定 | 不进入 B/C，避免在无防线状态下改业务语义 |
 | **G2（B 阶段）** | R4 与 R12 均有书面结论（批准/否决 + 理由 + 失效条件），写入 `decision-map.md` 与 `AGENTS.md` | C 阶段只能做 C1，不得动 S1 之后的切片 |
 | **G3（C 前置）** | C1 在本地 compose MySQL 上跑通；明确 CI 是否接入 MySQL service（默认不接，保持 CI 轻量） | 用 S1 的用例作为准入门槛，仍不允许先改语义（S3） |
 | **G4（C 关账）** | 超时注入演练：订单不丢、`stock_confirm=0`、5 分钟内闭环；看板/趋势/TOP 数值与改动前一致（roadmap DoD 第 5 条） | 不开 S4（自动取消会放大误判） |
@@ -103,3 +103,13 @@
 | 6 | 代码生效后再同步 AGENTS.md 与本计划状态 | D7/D8 | 文档 | 避免文档跑在实现前 |
 
 **顺序理由**：D8 是唯一动到鉴权语义的改动，先加测试再动过滤器；D7 只是配置项，可与之并行但**在 D8 之后**验证，避免白名单与优先级两类改动同时生效导致归因困难。
+
+## 9. 实施记录（2026-10-19）
+
+| 决策 | 改动 | 证据 |
+|---|---|---|
+| D8 快照鉴权 | `JwtAuthFilter` 改为 admin-only 优先于白名单；`GatewaySecurityProperties` 默认值与 `nacos-config/api-gateway.yml` 各加两条快照 pattern；`ProductSnapshotController` 加第二层 `assertAdmin`（缺角色头也拒） | `JwtAuthFilterTest#snapshotRequiresAdminDespiteProductWhitelist`（401/403/200 三态）、`ProductSnapshotControllerTest`（3 例） |
+| D7 注册内测 | 白名单撤下 `POST:/api/auth/register`、`POST:/api/auth/sms-code`；新增 `POST /api/admin/users`（DTO 校验 6–64 位口令、手机号正则、角色 USER/ADMIN） | `JwtAuthFilterTest#registrationAndSmsCodeAreClosedToAnonymous`、`UserManagementDomainServiceTest`（3 例）、`NacosConfigContractTest#gatewaySecurityPolicyLocksRegistrationAndSnapshotDecisions` |
+| 回归 | `./mvnw -B -ntp test` 全 reactor 绿：**203 例**（common 44 / gateway 27 / user 33 / product 32 / search 32 / order 16 / statistics 19） | surefire 汇总 |
+
+**生效提醒**：`nacos-config/` 的改动需在 Nacos 刷新后才生效（白名单与 admin-only 属 `@RefreshScope`），重启服务无效；本地未刷新时行为仍为旧策略。

@@ -249,6 +249,38 @@ class JwtAuthFilterTest {
     }
 
     @Test
+    @DisplayName("商品变更快照属管理数据：宽白名单不覆盖它（admin-only 优先于白名单）")
+    void snapshotRequiresAdminDespiteProductWhitelist() {
+        // 未登录 → 401（若白名单优先，这里会被静默放行）
+        run(HttpMethod.GET, "/api/products/snapshots/1", Map.of());
+        assertThat(status()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertThat(chain.calls).isZero();
+
+        // 普通用户 → 403
+        authorizedAs("user", HttpMethod.GET, "/api/products/snapshots");
+        assertThat(status()).isEqualTo(HttpStatus.FORBIDDEN.value());
+        assertThat(chain.calls).isZero();
+
+        // 管理员 → 放行并注入角色头
+        authorizedAs("ADMIN", HttpMethod.GET, "/api/products/snapshots/1");
+        assertThat(chain.calls).isEqualTo(1);
+        assertThat(chain.passed.getRequest().getHeaders().getFirst("X-User-Role")).isEqualTo("ADMIN");
+    }
+
+    @Test
+    @DisplayName("内测期注册与验证码不再匿名开放，登录仍匿名可用")
+    void registrationAndSmsCodeAreClosedToAnonymous() {
+        run(HttpMethod.POST, "/api/auth/register", Map.of());
+        assertThat(status()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+
+        run(HttpMethod.POST, "/api/auth/sms-code", Map.of());
+        assertThat(status()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+
+        run(HttpMethod.POST, "/api/auth/login", Map.of());
+        assertThat(chain.calls).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("过滤器顺序：IP 头覆写必须先于鉴权，鉴权为 -1")
     void filterOrderPutsIpRewriteFirst() {
         assertThat(filter.getOrder()).isEqualTo(-1);

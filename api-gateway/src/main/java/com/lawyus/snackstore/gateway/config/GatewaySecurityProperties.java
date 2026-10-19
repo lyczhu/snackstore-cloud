@@ -17,8 +17,6 @@ public class GatewaySecurityProperties {
 
     /** 白名单条目格式为 "HTTP方法:ANT路径"，方法与路径同时匹配才放行 */
     private Set<String> whitelist = Set.of(
-            "POST:/api/auth/sms-code",
-            "POST:/api/auth/register",
             "POST:/api/auth/login",
             "POST:/api/auth/admin/login",
             "GET:/api/products/**",
@@ -45,7 +43,10 @@ public class GatewaySecurityProperties {
             "POST:/api/products/categories",
             "PUT:/api/products/categories/**",
             "DELETE:/api/products/categories/**",
-            "GET:/api/statistics/**"
+            "GET:/api/statistics/**",
+            // 商品变更快照属管理数据；与 GET:/api/products/** 重叠，靠 admin-only 优先于白名单生效
+            "GET:/api/products/snapshots",
+            "GET:/api/products/snapshots/**"
     );
 
     public Set<String> getWhitelist() {

@@ -69,6 +69,7 @@
 - **理由**：唯一 `SmsSender` 实现是 `ConsoleSmsSender`（无 `@Profile`），真实通道暂不可用；保留匿名注册等于「验证码只进日志」，既不可用也不可测。
 - **被拒替代**：保留注册 + 日志告警 —— 拒绝，仍留下可被反复调用的匿名写入口与假成功。
 - **衍生缺口（必须一并定）**：`AdminUserController` 只有查/改/禁用，**没有建号接口**。内测期开号只能是「直接写库」或「补一个 admin-only 建号接口」，否则关闭注册后没有合法开号路径（见 D-Open-5）。
+- **已实施（2026-10-19）**：`nacos-config/api-gateway.yml` 已撤下两项；开号路径选「补接口」——新增 `POST /api/admin/users`（`AdminUserController` + `UserApplicationService#createUser` + `UserManagementDomainService#createUser`，BCrypt 编码、手机号查重、角色缺省 USER）。测试：`JwtAuthFilterTest#registrationAndSmsCodeAreClosedToAnonymous`、`UserManagementDomainServiceTest`（3 例）、`NacosConfigContractTest#gatewaySecurityPolicyLocksRegistrationAndSnapshotDecisions`。
 - **失效条件**：接入真实短信通道后，把两个白名单项加回，并加 `@Profile("!dev")` 校验真实实现存在。
 
 ## D8 · 商品快照查询：需鉴权，且 admin-only 优先于白名单（2026-10-19 拍板）
@@ -78,6 +79,7 @@
   - **（推荐）调优先级**：让 `requiresAdmin(...)` 先于 `isWhiteListed(...)`，再把 `GET:/api/products/snapshots` 与 `GET:/api/products/snapshots/**` 加进 `admin-only-patterns`。语义：「admin-only 与白名单重叠时以 admin-only 为准」。
   - **（可选）拆前缀**：快照挪到 `/api/snapshots/**` 新路由；控制器+路由+前端都要动，但不动过滤器语义。
 - **验收**：无 token → 401；USER token → 403；ADMIN token → 200；`GET /api/products/1` 仍匿名可读（回归）。
+- **已实施（2026-10-19）**：`JwtAuthFilter` 改为 admin-only 先于白名单；两条 pattern 已入 `api-gateway.yml` 与 `GatewaySecurityProperties` 默认值；`ProductSnapshotController` 加了第二层 `assertAdmin`（缺角色头也拒）。测试：`JwtAuthFilterTest#snapshotRequiresAdminDespiteProductWhitelist`、`ProductSnapshotControllerTest`（3 例）。
 - **失效条件**：若产品要「登录即可看」，需新增 authenticated-only 规则类型，而不是复用 admin-only。
 
 ## D9 · 部署前提：仅本机使用（2026-10-19 拍板）
@@ -96,7 +98,7 @@
 | ~~D-Open-2~~ | 是否会多实例部署 | 运维 | ✅ **已决：当前单实例（2026-10-19）**。因此 S4 不加 Redis 锁；**失效条件：一旦变多实例必须补上互斥**（仅省资源与避免重复日志，不影响正确性，见 D2） |
 | ~~D-Open-3~~ | ES 客户端兼容性；Sentinel 规则是否已建 | 需起栈验证 | ✅ **已决：本地运行正常、规则已在 Nacos 创建（2026-10-19）**。R10 仅剩「重建先全删索引」与「别名人工切换」 |
 | D-Open-4 | 契约治理方向：抽共享 `api-contract` 模块，还是保留「调用方自建契约 + 契约测试」 | 架构 owner | 影响 S2 新接口的 DTO 放置位置（`common` 还是各自副本） |
-| D-Open-5 | 内测期新用户开号方式：补 admin-only 建号接口，还是运维手写库 | 后端 / 产品 | 阻塞 D7 落地后的可用性（关闭注册后没有合法开号路径） |
+| ~~D-Open-5~~ | 内测期新用户开号方式 | 后端 / 产品 | ✅ **已决（2026-10-19）：补 admin-only 建号接口** —— `POST /api/admin/users`；运维手写库仅作为接口不可用时的应急手段 |
 
 ## 可逆性矩阵
 

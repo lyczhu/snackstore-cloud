@@ -1,4 +1,4 @@
-# 最小 CI：把「194 例单元测试全靠人工跑 mvn test」变成推送即验。
+# 最小 CI：把「203 例单元测试全靠人工跑 mvn test」变成推送即验。
 # 覆盖评审 R1（零自动化验证 + 无 CI）的自动化缺口；不覆盖需要真实
 # MySQL/Redis/Nacos/Kafka/ES 的集成层（见 docs/architecture/migration-roadmap.md 的 S0-b）。
 name: Maven CI

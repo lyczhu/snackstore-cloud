@@ -2,6 +2,7 @@ package com.lawyus.snackstore.user.application.service.impl;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.lawyus.snackstore.common.response.PageResult;
 import com.lawyus.snackstore.user.application.converter.UserViewConverter;
+import com.lawyus.snackstore.user.application.dto.AdminUserCreateCommand;
 import com.lawyus.snackstore.user.application.dto.UserLoginCommand;
 import com.lawyus.snackstore.user.application.dto.UserRegisterCommand;
 import com.lawyus.snackstore.user.application.dto.UserUpdateCommand;
@@ -21,6 +23,7 @@ import com.lawyus.snackstore.user.application.vo.UserViewVO;
 import com.lawyus.snackstore.user.domain.common.model.PagedResult;
 import com.lawyus.snackstore.user.domain.user.model.entity.User;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.Phone;
+import com.lawyus.snackstore.user.domain.user.model.valueobject.UserRole;
 import com.lawyus.snackstore.user.domain.user.model.valueobject.UserStatus;
 import com.lawyus.snackstore.user.domain.user.port.SmsSender;
 import com.lawyus.snackstore.user.domain.user.port.TokenPort;
@@ -154,6 +157,17 @@ public class UserApplicationServiceImpl implements UserApplicationService {
             tokenPort.revoke(id);
             log.info("用户已被禁用，已吊销其token: userId={}", id);
         }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserViewVO createUser(AdminUserCreateCommand command) {
+        UserRole role = command.getRole() == null
+                ? UserRole.USER
+                : UserRole.fromCode(command.getRole().toUpperCase(Locale.ROOT));
+        User user = userManagementDomainService.createUser(
+                Phone.of(command.getPhone()), command.getPassword(), role, command.getNickname());
+        return UserViewConverter.toViewVO(user);
     }
 
     private LoginViewVO buildLoginViewVO(User user) {

@@ -1,6 +1,7 @@
 package com.lawyus.snackstore.user.application.service;
 
 import com.lawyus.snackstore.common.response.PageResult;
+import com.lawyus.snackstore.user.application.dto.AdminUserCreateCommand;
 import com.lawyus.snackstore.user.application.dto.UserRegisterCommand;
 import com.lawyus.snackstore.user.application.dto.UserLoginCommand;
 import com.lawyus.snackstore.user.application.dto.UserUpdateCommand;
@@ -28,4 +29,6 @@ public interface UserApplicationService {
     long countUsers();
 
     void updateUserStatus(Long id, Integer status);
+
+    UserViewVO createUser(AdminUserCreateCommand command);
 }

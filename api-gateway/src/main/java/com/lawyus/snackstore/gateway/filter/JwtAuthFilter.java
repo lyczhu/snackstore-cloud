@@ -54,9 +54,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+        boolean adminRequired = requiresAdmin(request.getMethod().name(), path);
 
-        if (isWhiteListed(path, request.getMethod().name())) {
-            // 白名单路径未做认证：剥离客户端伪造的身份头，下游服务不得信任未注入的身份
+        // admin-only 优先于白名单：两者重叠时必须鉴权。否则 /api/products/** 这类宽白名单
+        // 会静默吞掉挂在它下面的管理接口（如商品快照）的鉴权要求。
+        // 白名单路径未做认证：剥离客户端伪造的身份头，下游服务不得信任未注入的身份。
+        if (!adminRequired && isWhiteListed(path, request.getMethod().name())) {
             return chain.filter(stripIdentityHeaders(exchange));
         }
 
@@ -70,7 +73,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             Claims claims = jwtUtil.parseToken(token);
             String role = claims.get("role", String.class);
 
-            if (requiresAdmin(request.getMethod().name(), path) && !isAdmin(role)) {
+            if (adminRequired && !isAdmin(role)) {
                 Long userId = claims.get("userId", Long.class);
                 log.warn("非管理员访问管理接口: userId={}, path={}", userId, path);
                 return writeErrorResponse(exchange, HttpStatus.FORBIDDEN, ResultCode.FORBIDDEN);

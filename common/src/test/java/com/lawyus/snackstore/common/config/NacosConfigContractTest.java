@@ -116,6 +116,24 @@ class NacosConfigContractTest {
     }
 
     @Test
+    @DisplayName("网关安全策略锁定两项决策：内测关注册、快照仅管理员（admin-only 优先于白名单）")
+    void gatewaySecurityPolicyLocksRegistrationAndSnapshotDecisions() throws Exception {
+        Map<String, Object> root = loadYaml(NACOS_DIR.resolve("api-gateway.yml"));
+        Map<String, Object> security = asMap(asMap(root.get("gateway")).get("security"));
+        List<String> whitelist = asStringList(security.get("whitelist"));
+        List<String> adminOnly = asStringList(security.get("admin-only-patterns"));
+
+        assertThat(whitelist)
+                .as("内测期自助注册关闭（决策 D7）：register/sms-code 不得匿名开放")
+                .contains("POST:/api/auth/login", "POST:/api/auth/admin/login")
+                .doesNotContain("POST:/api/auth/register", "POST:/api/auth/sms-code");
+
+        assertThat(adminOnly)
+                .as("商品变更快照属管理数据（决策 D8），且必须盖住 GET:/api/products/**")
+                .contains("GET:/api/products/snapshots", "GET:/api/products/snapshots/**");
+    }
+
+    @Test
     @DisplayName("契约检查本身有牙：坏 YAML 会抛错、含 %clr 的 pattern 会被判违规")
     void guardIsNotVacuous() {
         // 未闭合的流式序列必须被解析步骤拒绝（ScannerException 是 YAMLException 子类）
@@ -138,6 +156,18 @@ class NacosConfigContractTest {
     /** 安全加载器：只产出 Map/List/标量，禁止 !!tag 构造任意应用对象。 */
     private static Yaml safeYaml() {
         return new Yaml(new SafeConstructor(new LoaderOptions()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object node) {
+        assertThat(node).as("YAML 节点应为映射").isInstanceOf(Map.class);
+        return (Map<String, Object>) node;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> asStringList(Object node) {
+        assertThat(node).as("YAML 节点应为列表").isInstanceOf(List.class);
+        return (List<String>) node;
     }
 
     private static Map<String, Object> loadYaml(Path file) throws Exception {

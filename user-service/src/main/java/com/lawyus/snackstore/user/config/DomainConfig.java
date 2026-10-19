@@ -26,8 +26,9 @@ public class DomainConfig {
     }
 
     @Bean
-    public UserManagementDomainService userManagementDomainService(UserRepository userRepository) {
-        return new UserManagementDomainService(userRepository);
+    public UserManagementDomainService userManagementDomainService(UserRepository userRepository,
+                                                                  PasswordEncoder passwordEncoder) {
+        return new UserManagementDomainService(userRepository, passwordEncoder);
     }
 
     @Bean

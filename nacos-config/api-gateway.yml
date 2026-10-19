@@ -46,6 +46,11 @@ spring:
 gateway:
   security:
     whitelist:
+      # 内测期关闭自助注册（决策 D7）：register / sms-code 不再匿名开放。
+      # 恢复条件：接入真实短信通道后把这两项加回，并保持 login/admin/login 不变。
+      - "POST:/api/auth/login"
+      - "POST:/api/auth/sms-code"
+      - "POST:/api/auth/register"
       - "POST:/api/auth/sms-code"
       - "POST:/api/auth/register"
       - "POST:/api/auth/login"
