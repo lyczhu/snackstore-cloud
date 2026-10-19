@@ -1,7 +1,7 @@
 // 依赖图与耦合度量（当前态）— 场景技能 dependency-impact-analyzer + 基础技能 graphviz
 // 度量口径: fanIn/fanOut 只统计「服务间 Feign 调用」，网关路由单列（配置面，不是业务依赖）
 // I = fanOut/(fanIn+fanOut)（ instability ）；0=最稳定（被依赖不依赖人），1=最不稳定
-// 证据: 各 *Client/@FeignClient 声明、193 个 main java 文件的同名类分组、各模块 pom.xml
+// 证据: 各 *Client/@FeignClient 声明、201 个 main java 文件（2026-10-19 复核）的同名类分组、各模块 pom.xml
 digraph "dependency_map" {
     rankdir=TB;
     nodesep=0.6;

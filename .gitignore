@@ -65,3 +65,6 @@ CODEBUDDY.md
 
 # isolated git worktrees
 .worktrees/
+
+# 中间审查结果 无需入库
+docs/系统审查报告*

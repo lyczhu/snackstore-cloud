@@ -3,7 +3,7 @@
 - **分析粒度**：可部署服务 + 共享库 + 服务间契约 + 配置面 + 数据面（非文件级）
 - **图**：[`dependency-map.dot`](./dependency-map.dot)（依赖与耦合度量）、[`impact-map.dot`](./impact-map.dot)（6 个变更点的爆炸半径）
 - **机器可读清单**：[`violations.csv`](./violations.csv)
-- **证据基线**：193 个 `src/main/java` 文件、6 个模块 pom、5 个 `@FeignClient`、`nacos-config/api-gateway*.yml`、迁移脚本
+- **证据基线**：201 个 `src/main/java` 文件（2026-10-19 复核重测，原记 193）、6 个模块 pom、5 个 `@FeignClient`、`nacos-config/api-gateway*.yml`、迁移脚本
 - **注意**：本报告不含风险定级（→ [`architecture-review.md`](./architecture-review.md)），只回答「谁依赖谁、改这里会扩散到哪」
 
 ---
@@ -35,7 +35,7 @@
 - **停止准则**：进程边界（各服务独立打包，需全量重启）
 - **确认影响**：全模块重编译与重启；`StatisticsServiceImpl.extractData`（`:213-222`）以 `code == 200` 判成功，字段改名即把三个 Feign 客户端的降级判定打成「恒失败」；网关 `JwtAuthFilter.writeErrorResponse`（`:185-197`）直接序列化 `Result`，形状变更同时改变对外错误契约
 - **证据**：`common/.../response/{Result,PageResult}.java`、6 个 pom 的 `common` 依赖
-- **验证**：改动后至少跑一次「下单 + 看板 + 搜索」三链路手工回归（当前无测试可替代）
+- **验证**：形状变更的编译期影响已可由 `./mvnw -B -ntp test`（194 例单元测试）兜底；但**跨服务契约无自动化测试**，改动后仍需跑一次「下单 + 看板 + 搜索」三链路手工回归（2026-10-19 复核）
 
 ### B｜改 product-service 输出契约（`ProductVO`/`ProductDetailVO` 字段）— 最危险
 

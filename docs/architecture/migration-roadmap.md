@@ -4,6 +4,7 @@
 - **当前态证据**：`OrderServiceImpl.java:51-79`（本地事务内远程扣减）、product 迁移仅 V1–V3（**无流水表**）、`ProductServiceImpl.java:270-336`（扣减/回滚非幂等）
 - **目标态证据**：`docs/库存补偿方案.md`（状态：**方案讨论稿，未实施**）→ 本文件是其**切片化与验收定义**，不是实施记录
 - **图**：[`current-vs-target.dot`](./current-vs-target.dot)；决策取舍见 [`decision-map.md`](./decision-map.md)
+- **优先级定位**：本文件的 S0–S5 即 [`improvement-priority-plan.md`](./improvement-priority-plan.md) 的 **C 阶段**；A（端口收口/契约测试）、B（R4/R12 决策）、D（可维护性）不在本文件范围
 - ⚠️ 下列所有 target 节点均为 **target/proposed**，尚未有任何一行代码实现
 
 ---
@@ -16,7 +17,7 @@
 | G2 | product 侧无法回答「这个订单到底扣没扣」 | `GET /internal/stock/deduction/status?orderNo=` 三态可查 | 契约新增 |
 | G3 | `createOrder` 遇任何异常一律回滚本地订单 | 区分**业务失败**（回滚）与**超时**（提交并标记 `stock_confirm=0`） | 语义变更（最高风险片） |
 | G4 | 无任何对账/补偿任务 | `@Scheduled` 扫标记单 → 查流水 → 确认/重试/走 `cancelOrder` | 新增机制 |
-| G5 | 0 测试、无 CI | 改动前后有回归防线 | 验证缺口（阻塞所有其它片） |
+| G5 | ~~0 测试、无 CI~~（2026-10-19 复核：194 例单元测试 + CI 已就位） | 改动前后有回归防线 | 单元层已关；**集成/契约测试仍缺（S0-b）** |
 | G6 | 泄漏只存在于口头认知 | 泄漏量可观测（stuck 订单 gauge + 告警） | 观测缺口 |
 
 **关键取舍**：G3 意味着**下单接口的失败语义发生变化**——超时不再返回错误，而是返回成功 + 后台可能自动取消。这是产品可感知行为，不是纯技术重构。
@@ -30,22 +31,22 @@
 - **实施时发现两个硬约束（推翻原定范围）**：① 全仓库测试依赖为零（无任何 pom 含 `spring-boot-starter-test`/junit/mockito），不是「有框架缺测试」而是「测试基建不存在」；② Flyway 脚本含 `CREATE DATABASE` + `USE snackstore_xxx`（三个 V1 迁移首部），**H2 跑不了**，依赖真库的集成测试当前不可行
 - **因此拆成两片**：
   - **S0-a（已完成）**：纯单元 + Mockito 隔离 Mapper/Feign，不依赖 MySQL/Redis/Nacos。已落地 `OrderServiceImplTest`（**8 个用例全绿**，`mvn test` 全 reactor BUILD SUCCESS），覆盖：金额 `Σ(price×qty)`、**先插订单再扣库存的调用顺序**、扣减返回 false → `STOCK_NOT_ENOUGH`、**`status=null` 视为下架而非 NPE**（评审 R6 的语义锚点）、商品数不匹配 → `ORDER_CREATE_FAILED`、支付条件更新 0 行的两个分支（`ORDER_CANNOT_PAY` / `ORDER_NOT_FOUND`）、取消时回滚失败必须报错、非 CANCELLED 不可删
-  - **S0-a 已推平全项目（2026-10-19）**：**160 个用例 / 7 个模块 / 21 个测试文件**，`mvn test` 全 reactor 绿（~25s）。每个模块锁住的是各自最易静默坏的口径：
+  - **S0-a 已推平全项目（2026-10-19，含当日复核）**：**194 个用例 / 7 个模块 / 25 个测试类**，`mvn test` 全 reactor 绿（~60s）。每个模块锁住的是各自最易静默坏的口径：
     | 模块 | 用例 | 锁住的关键语义 |
     |---|---|---|
-    | common | 23 | JwtUtil 密钥按字节校验、过期/篡改必判无效；**搜索双通道 DTO 字段集不得互渗**（R6 族漂移闸门）；AuthConstants 头名与角色字面量 |
-    | api-gateway | 16 | 白名单剥离伪造 `X-User-*`、方法+路径双匹配、admin-only 与角色大小写不敏感、会话吊销、**Redis fail-open 放行**（有意取舍不可被悄悄改掉）、IP 代理头覆写与过滤器顺序 |
+    | common | 43 | JwtUtil 密钥按字节校验、过期/篡改必判无效；**搜索双通道 DTO 字段集不得互渗**（R6 族漂移闸门）；AuthConstants 头名与角色字面量 |
+    | api-gateway | 25 | 白名单剥离伪造 `X-User-*`、方法+路径双匹配、admin-only 与角色大小写不敏感、会话吊销、**Redis fail-open 放行**（有意取舍不可被悄悄改掉）、IP 代理头覆写与过滤器顺序 |
     | user-service | 30 | 注册/登录的**检查顺序**（锁定早于查库、禁用早于口令比较、验证码失败必计数）、管理员登录不泄漏账号存在性、默认地址唯一性与自动提升、口令 72 字节口径、分页兜底 |
     | product-service | 29 | `WHERE stock >= n` 原子扣减、预检查先于更新、失败不发事件、**批量回滚不检查影响行数（与单商品不对称，S1 需收口）**、排序白名单；**发布端**：只发商品当前态、查不到商品降级为删除消息（防索引幽灵）、分区键 `product-{id}`、五种 changeType 全映射、发送失败按 backoff 重试且**绝不把异常抛回业务线程** |
     | product-search-service | 32 | 排序白名单与深分页上限、默认只出上架、**金额元⇄分双向换算**、降级空分页与透传、脏数据不入索引；**消费端**：索引写失败必须重抛且不 ack（消息不丢）、DELETED 只删不写、事件→索引 12 字段全映射、DLT 任何分支都 ack；**全量重建**：先删空再分页写入的顺序、重入只跑一份、失败后标志位必复位、`MAX_PAGES` 上限不死循环 |
-    | order-service | 11 | 见上一段（下单主链路）；`ProductClientFallbackFactory` **失败关闭**（code=500 且 data 为空，绝不伪装成功）+ `@Component` 在册（缺 bean 则 SentinelFeign 启动即失败） |
+    | order-service | 16 | 见上一段（下单主链路）；`ProductClientFallbackFactory` **失败关闭**（code=500 且 data 为空，绝不伪装成功）+ `@Component` 在册（缺 bean 则 SentinelFeign 启动即失败） |
     | statistics-service | 19 | 缓存键隔离与 ±10% TTL 抖动、**上游非 200 则整体失败且不写缓存**、单飞锁内二次检查、分类聚合合并/排序/丢弃未映射；三个 Feign 降级工厂同样失败关闭（不得返回 0/空集合冒充成功） |
   - **额外产出**：测试过程中发现一个新风险（评审 R13：`AggregateRoot.getDomainEvents()` 返回活视图，`clearDomainEvents()` 会清空已传出去的引用），已登记未修
   - **S0-b（暂停）**：跳库集成测试与端到端，需真实 MySQL（本地 compose 拉起）或 Testcontainers（需拉镜像）；原 S0 里的「取消后 `t_product.stock` 回原值」与「统计只计 `status=1`」**只有这一层能验**，S0-a 验不了，不得当作已覆盖
 - **为什么先做**：S1–S4 全落在「钱货等价物」路径上。没有 S0，后续每一片都只能靠人工回归
 - **验证信号**：故意改坏金额公式或插入顺序时 S0-a 变绿→变红
-- **可逆性**：完全可逆（21 个测试文件 + 7 个模块 pom 各加一个 `spring-boot-starter-test` test 依赖 + gateway 额外一个 `reactor-test`；未动任何 main 代码、配置、Flyway 脚本）
-- **已知残留**：JDK 25 下 Mockito 靠 self-attach 启用 inline-mock-maker，构建有告警（提示未来可能失效）；彻底解法是在 surefire `argLine` 里以 `-javaagent` 显式挂载 mockito-core，归入 S0-b 一并处理
+- **可逆性**：完全可逆（25 个测试类 + 7 个模块 pom 各加一个 `spring-boot-starter-test` test 依赖 + gateway 额外一个 `reactor-test`；未动任何 main 代码、配置、Flyway 脚本）
+- **已知残留（2026-10-19 复核：已解决）**：原条目为「JDK 25 下 Mockito 靠 self-attach 启用 inline-mock-maker，构建有告警」；现由**父 pom** 统一处理：`maven-dependency-plugin:properties`（`process-test-classes`）暴露 `${org.mockito:mockito-core:jar}`，surefire `argLine` 显式 `-javaagent` 挂载，全部模块共用，告警消除。约束：各模块**不得覆写 `argLine`**；若将来接入 jacoco 需改为 `@{argLine} -javaagent:…`。
 
 ### S1 · product-service 幂等化 + 流水表
 - **做什么**：Flyway **新增 `V4__add_stock_deduction_log.sql`**（表含 `order_no`+`product_id` 唯一约束、`quantity`、`status∈{DEDUCTED,ROLLED_BACK}`、`deduct_time`、`rollback_time`）；`batchDeductStock` 在**同一本地事务**内写流水，同一 orderNo 重复调用直接返回既有结果；`batchRollbackStock` 已 ROLLED_BACK 则 no-op
@@ -87,7 +88,7 @@ S0 ──▶ S1 ──▶ S2 ──▶ S3(开关) ──▶ S4 ──▶ S5
 闸门   幂等    查询   语义变更     机制    闭环
 ```
 - **S1 必须先于 S3/S4**：方案文档第 17 行「任何补偿方案必须先做幂等化」——补偿会重试，非幂等的重试等于制造新的漂移
-- **S0 必须先于一切**：本次评审的 P0 风险（0 测试）使「改了但没人能证明没改坏」成为主要风险形态
+- **S0 必须先于一切**：原 P0 风险是「0 测试」→ 2026-10-19 复核后已降为「自动化只覆盖单元层」（194 例 + CI），S0-a 已关账，S0-b（真库集成）仍待环境；「改了但没人能证明没改坏」的主要风险形态已缓解但未消除
 - **S3 与 S4 可并行开发、不可并行上线**：S4 依赖 S3 产生的标记数据
 - **S1+S2 可独立发布并长期停留**：即使产品否决 S3 的语义变更，S1 的幂等化与 S2 的对账查询接口仍有独立价值（人工/脚本对账可用），**不构成沉没成本**
 
@@ -97,7 +98,7 @@ S0 ──▶ S1 ──▶ S2 ──▶ S3(开关) ──▶ S4 ──▶ S5
 
 ## 5. 里程碑完成定义（DoD）
 
-1. S0-a 测试稳定为绿，且对金额/插入顺序/状态口径的破坏性改动能被捕获（**已达成 2026-10-19**：全项目 160 例全绿；但**无 CI**，只能靠人工执行 `mvn test`，本条不算完全关账）
+1. S0-a 测试稳定为绿，且对金额/插入顺序/状态口径的破坏性改动能被捕获（**已完成 2026-10-19**：25 个测试类 / 194 例全绿；同日复核确认 **CI 已落地**（`.github/workflows/maven.yml`，`mvn -B -ntp test` + `package -DskipTests`），S0-a 关账；S0-b（集成层）仍暂停于环境）
 2. 同一 orderNo 的重复扣减与重复回滚均为幂等（S1 用例）
 3. 注入超时后：订单不丢失、`stock_confirm=0`、5 分钟内自动闭环（S3+S4）
 4. 无「超时自动取消正常未支付订单」的行为变化（S4 范围纪律）

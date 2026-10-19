@@ -17,7 +17,7 @@ digraph "current_vs_target" {
         c_stock [label="t_product.stock", shape=cylinder, fillcolor="#2F6B5E", fontcolor="#FFFFFF"];
         c_order [label="t_order（status 0/1/2 + deleted）\n无 stock_confirm 字段", shape=cylinder, fillcolor="#2F6B5E", fontcolor="#FFFFFF"];
         c_leak [label="泄漏路径（已确认存在）\n超时 → 本地回滚，product 侧可能已提交\n无流水、无对账、无兜底", fillcolor="#FFC7CE", color="#C0392B"];
-        c_notest [label="0 测试 / 无 CI\n改动无法自证未改坏", fillcolor="#FFC7CE", color="#C0392B"];
+        c_notest [label="单元 194 例 + CI 已就位\n集成/契约仍缺（S0-b）", fillcolor="#FFF2CC", color="#B45309"];
         c_ctx [label="部署前提（2026-10-19 用户确认）\n仅本地使用 + 当前单实例\n→ 影响 R2/R3 定级与 S4 是否加锁", shape=note, fillcolor="#FFE0B2", color="#B45309"];
 
         c_create -> c_deduct [label="Feign 同步调用"];

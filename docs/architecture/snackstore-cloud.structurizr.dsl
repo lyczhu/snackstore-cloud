@@ -2,6 +2,8 @@
 # 生成方式: system-modeler(场景) + c4model(基础) ；证据与置信度见 snackstore-cloud.evidence.md
 # 打开方式: 用 Qoder 的 Structurizr DSL 预览查看；也可导入 Structurizr Lite / Playground
 # 范围: 仅 current 状态。短信通道为 unknown（代码中只有 ConsoleSmsSender）
+# 复核: 2026-10-19 architecture-health（HEAD 159b3d4）——容器数量、端口、路由顺序、数据归属未变；
+#       仅按当前功能面更新两处描述（gateway 含请求 id、product 含快照查询），未新增节点/关系。
 #
 # 排版约定（为避免文字与边界重合、内容被裁切）:
 # - 视图按问题拆分，单视图节点 <= 11、关系 <= 14，不用 include * 把全量关系塞进一张图
@@ -16,9 +18,9 @@ workspace "Snackstore Cloud" "零食电商微服务后端当前态模型" {
         operator = person "管理员" "管商品与看统计"
 
         snackstore = softwareSystem "Snackstore Cloud" "零食电商微服务后端" {
-            gateway = container "api-gateway" "路由与 JWT 鉴权" "Gateway :8080"
+            gateway = container "api-gateway" "路由、鉴权、请求 id" "Gateway :8080"
             userSvc = container "user-service" "账号/验证码/地址" "Spring Boot :8081"
-            productSvc = container "product-service" "商品/分类/库存" "Spring Boot :8082"
+            productSvc = container "product-service" "商品/分类/库存/快照" "Spring Boot :8082"
             orderSvc = container "order-service" "下单/支付/取消" "Spring Boot :8083"
             searchSvc = container "product-search-service" "商品全文检索" "Spring Boot :8085"
             statsSvc = container "statistics-service" "经营指标聚合" "Spring Boot :8087"

@@ -15,13 +15,13 @@ digraph "risk_map" {
     qa_secure [label="质量属性\n安全性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
     qa_maint [label="质量属性\n可维护性 / 可演进性", shape=ellipse, fillcolor="#1168BD", style=filled, fontcolor="#FFFFFF"];
 
-    R1 [label="R1 P0\n0 测试 + 无 CI\n（30 项已修无回归防线）", shape=diamond, fillcolor="#FFC7CE"];
+    R1 [label="R1 P1\n194 例单测 + CI\n（集成/契约仍缺）", shape=diamond, fillcolor="#FFF2CC"];
     R2 [label="R2 本地收口建议\n网关 actuator 无鉴权可读\n（影响 Medium：仅局域网）", shape=diamond, fillcolor="#FFC7CE"];
     R3 [label="R3 已登记本地取舍\nNacos 关鉴权且端口发布\n（非本地场景则 Critical）", shape=diamond, fillcolor="#FFE9A8"];
     R4 [label="R4 P1\n短信通道为控制台实现\n→ 注册链路生产断链", shape=diamond, fillcolor="#FFC7CE"];
     R5 [label="R5 P1\n扣库存超时窗口无兜底\n（无幂等流水表）", shape=diamond, fillcolor="#FFC7CE"];
     R6 [label="R6 P1\n契约复制已漂移\nstatus→null 即全站下单失败", shape=diamond, fillcolor="#FFC7CE"];
-    R11 [label="R11 P1\ndocs/ 与 AGENTS.md 未被 git 跟踪\n权威依据不可见", shape=diamond, fillcolor="#FFC7CE"];
+    R11 [label="R11 已闭环\ndocs/ 与 AGENTS.md 已入库", shape=diamond, fillcolor="#D5F5E3"];
     R7 [label="R7 P2\n路由 order 与鉴权模式人肉同步", shape=diamond, fillcolor="#FFF2CC"];
     R8 [label="R8 P2\nSQL 字面量 status=1 与常量脱钩", shape=diamond, fillcolor="#FFF2CC"];
     R9 [label="R9 P2\nproduct fanIn=3 单点 + 统计无部分降级", shape=diamond, fillcolor="#FFF2CC"];

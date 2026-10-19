@@ -1,0 +1,57 @@
+// 改进优先级与依赖顺序（2026-10-19）— evolution-planner + graphviz
+// 仅表达「先后与依赖」，不表达已完成状态；验收标准见 improvement-priority-plan.md
+// 实线 = 必须先做；虚线 = 决策点/同期评估
+digraph "improvement_sequence" {
+    rankdir=LR;
+    nodesep=0.45;
+    ranksep=0.8;
+    fontname="Microsoft YaHei";
+    node [fontname="Microsoft YaHei", fontsize=10, style=filled, fillcolor="#F5F7FA", color="#4B5563"];
+    edge [fontname="Microsoft YaHei", fontsize=9];
+
+    subgraph cluster_a {
+        label="A 立即（约 1 天，零语义变更）";
+        style=rounded; color="#2F6B5E";
+        a1 [label="A1 端口收口（可选）\nR2/R3", fillcolor="#D5F5E3"];
+        a2 [label="A2 actuator 收窄\nR2", fillcolor="#D5F5E3"];
+        a3 [label="A3 事件快照\nR13", fillcolor="#D5F5E3"];
+        a4 [label="A4 状态常量\nR8", fillcolor="#D5F5E3"];
+        a5 [label="A5 配置契约测试\nR7/D6", fillcolor="#D5F5E3"];
+        a6 [label="A6 契约快照测试\nR6", fillcolor="#D5F5E3"];
+    }
+
+    subgraph cluster_b {
+        label="B 决策（2 已定 / 1 待定）";
+        style=rounded; color="#B45309";
+        b1 [label="B1 注册内测 ✓\nR4", fillcolor="#FFE0B2"];
+        b2 [label="B2 写接口去留\nR12 待定", fillcolor="#FFE0B2"];
+        b3 [label="B3 快照鉴权 ✓\nR14", fillcolor="#FFE0B2"];
+    }
+
+    subgraph cluster_c {
+        label="C 一致性主线（4–6 天）";
+        style=rounded; color="#1168BD";
+        c1 [label="C1 S0-b 真库用例", fillcolor="#DAE8FC"];
+        c2 [label="C2 S1 幂等+流水", fillcolor="#DAE8FC"];
+        c3 [label="C3 S2 状态查询", fillcolor="#DAE8FC"];
+        c4 [label="C4 S3 超时标记", fillcolor="#DAE8FC"];
+        c5 [label="C5 S4 对账+S5 观测", fillcolor="#DAE8FC"];
+    }
+
+    subgraph cluster_d {
+        label="D 可维护性（按需）";
+        style=rounded; color="#6B7280";
+        d1 [label="D1 统计部分降级\nR9", fillcolor="#E5E7EB"];
+        d2 [label="D2 ES 别名切换\nR10", fillcolor="#E5E7EB"];
+        d3 [label="D3 lint 入 CI\nR1 残余", fillcolor="#E5E7EB"];
+    }
+
+    a1 -> a2 [style=dashed, label="收口后可收窄"];
+    a6 -> c2 [label="先钉住 status/price 语义"];
+    b2 -> c3 [style=dashed, label="同期评估落点"];
+    c1 -> c2 [label="幂等须真库验证"];
+    c2 -> c3 -> c4 -> c5 [label="按序"];
+    b1 -> c4 [style=dashed, label="验收需可注册用户"];
+    d1 -> c5 [style=dashed, label="复用聚合口径"];
+    d3 -> a5 [style=dashed, label="可同批入 CI"];
+}

@@ -1,7 +1,7 @@
 # Snackstore Cloud 架构模型 — 证据索引
 
 配套文件：`snackstore-cloud.structurizr.dsl`（C4 四视图：V1 上下文 / V2 服务拓扑 / V3 数据归属 / V4 信任边界）、`order-checkout-flow.dot`（下单端到端）、`order-status-lifecycle.dot`（状态机）、`integration-dependency.dot`（依赖与契约）。
-生成日期：2026-10-19。范围：**仅当前态（current）**，不含目标态与整改建议（后者属 `evolution-planner` / `risk-quality-reviewer`）。
+生成日期：2026-10-19。复核：2026-10-19（`architecture-health`，基线 HEAD `159b3d4`）——本轮改写了「测试/CI/docs 跟踪」三组已过期证据，并补上请求 id 透传与快照查询面。范围：**仅当前态（current）**，不含目标态与整改建议（后者属 `evolution-planner` / `risk-quality-reviewer`）。
 置信度定义：**high** = 代码/配置/迁移脚本直接证据；**medium** = 多处间接证据一致；**low** = 仅由命名、目录结构或文档推断；**unknown** = 明确待验证。
 
 ## 节点
@@ -12,8 +12,8 @@
 | actor.operator | 管理员 | actor | current | high | `nacos-config/api-gateway.yml:58-74`、`product-service/.../ProductController.java:95-99`、`statistics-service/.../StatisticsController.java:63-67` |
 | container.gateway | api-gateway :8080 | service | current | high | `api-gateway/src/main/java/.../gateway/`（filter/route/handler/config）、`nacos-config/api-gateway.yml:1-15` |
 | container.user | user-service :8081 | service | current | high | `user-service/src/main/java/.../user/{presentation,application,domain,infrastructure}`、`nacos-config/user-service.yml` |
-| container.product | product-service :8082 | service | current | high | `product-service/src/main/java/.../product/`（41 文件）、`nacos-config/product-service.yml:8-31` |
-| container.order | order-service :8083 | service | current | high | `order-service/src/main/java/.../order/`（30 文件）、`nacos-config/order-service.yml:21-25` |
+| container.product | product-service :8082 | service | current | high | `product-service/src/main/java/.../product/`（38 文件，2026-10-19 复核）、`nacos-config/product-service.yml:8-31` |
+| container.order | order-service :8083 | service | current | high | `order-service/src/main/java/.../order/`（29 文件，2026-10-19 复核）、`nacos-config/order-service.yml:21-25` |
 | container.search | product-search-service :8085 | service | current | high | `product-search-service/src/main/java/.../product/search/`、`nacos-config/product-search-service.yml:8-32` |
 | container.statistics | statistics-service :8087 | service | current | high | `statistics-service/src/main/java/.../statistics/`（26 文件）、`nacos-config/statistics-service.yml:20-28` |
 | data.user-db | snackstore_user | database | current | high | `user-service/src/main/resources/db/migration/V1__init_user_tables.sql`、`V2__rotate_admin_password.sql` |
@@ -55,6 +55,7 @@
 | edge.user.sms | user → sms-provider | calls | sync | **unknown** | low | `UserApplicationServiceImpl.java:71`（`smsSender.send`）；实现 `ConsoleSmsSender.java` 仅日志 |
 | edge.*.nacos | 全部服务 → nacos | depends-on (注册/配置) | sync | Nacos HTTP | high | `docker-compose.yml:146-155` 等环境变量、各模块 `src/main/resources/application.yml`（仅 bootstrap）、`AGENTS.md`（配置位于 `nacos-config/`） |
 | edge.*.common | 全部模块 → common | depends-on (编译期) | — | in-process | high | 各模块 `pom.xml`（`api-gateway/pom.xml:65`、`user-service/pom.xml:18` 等） |
+| edge.*.trace-id | gateway → 5 个下游服务 → 响应头 | propagates (请求关联 id) | sync | HTTP header + MDC | high | 网关 `filter/RequestTraceFilter`（生成/覆盖入站 id）+ `filter/AccessLogFilter`（同一 id 串联日志）；`common/.../constant/TraceConstants` + `util/TraceIdUtil`；各服 `config/RequestTraceFilter`（order/product/product-search/statistics/user） |
 
 ## 关键业务事实（结构与行为分离）
 
@@ -72,11 +73,20 @@
 | 搜索默认只返回上架商品 | 行为 | high | `ProductSearchServiceImpl.java:160-163`、`ProductServiceImpl.java:107`（MySQL 降级同样默认 status=1） |
 | 商品/分类变更事件为最终一致（ES 允许滞后） | 行为 | high | `ProductChangedListener.java:59`（AFTER_COMMIT）+ `ProductSearchRebuildService.java:43`（每日 3 点全量重建兜底） |
 
+## 工程能力与交付证据（2026-10-19 复核新增）
+
+| 主张 | 类型 | 置信度 | sourceRefs |
+|---|---|---|---|
+| 25 个测试类 / 194 例纯单元测试覆盖 7 个模块，全 reactor 绿 | 验证能力 | high | `*/src/test/java/**/*Test.java`；`.\mvnw.cmd -B -ntp test` 实测：common 43 / api-gateway 25 / user 30 / product 29 / product-search 32 / order 16 / statistics 19，`BUILD SUCCESS` |
+| CI 存在且含打包检查 | 交付流水线 | high | `.github/workflows/maven.yml`（JDK 25 zulu；`mvn -B -ntp test` + `mvn -B -ntp package -DskipTests`；push/PR to `main` + `workflow_dispatch`） |
+| `docs/` 已入库，仅中间审查结果忽略 | 知识资产 | high | `git ls-files docs` = 18 个文件；`.gitignore` 仅新增 `docs/系统审查报告*` |
+| 商品快照可查（非只有表） | 功能面 | high | `product-service/.../controller/ProductSnapshotController.java`（`/products/snapshots`、`/{id}`），**未**调用 `assertAdmin` → 走 `GET:/api/products/**` 白名单时匿名可读 |
+
 ## 明确的未知项（建议后续验证）
 
 1. **短信投递**：`SmsSender` 只有 `ConsoleSmsSender` 实现 → 生产验证码如何送达用户未知。验证方式：查是否有其他 profile 的实现或外部网关配置。
 2. **Sentinel 规则是否已建**：`nacos-config/sentinel/*.json` 为基线备份，需手工创建到 Nacos；运行时是否已存在未知（需查 Nacos 控制台）。
-3. **order-service 的 Redis**：`order-service/pom.xml:42` 有 redis starter，`docker-compose.yml:283-284` 注入 Redis 环境变量，但 `nacos-config/order-service.yml` 无 redis 配置块且代码中未见使用 → 死配置还是待启用未知。
+3. **order-service 的 Redis**：`order-service/pom.xml` 有 redis starter，`docker-compose.yml` 注入 Redis 环境变量，但 `nacos-config/order-service.yml` 无 redis 配置块，且 order-service 全模块源码 **0 处** Redis 引用（2026-10-19 复核重测）→ 死配置还是待启用未知。
 4. **支付/退款**：`payOrder` 只把状态从 0 改 1 并写 `pay_time`，无支付渠道调用、无退款路径 → 「支付」是业务上真实支付还是标记动作未知（代码证据仅支持后者：`OrderServiceImpl.java:165-182`）。
 5. **购物车/优惠券/物流**：无任何实体、迁移或接口证据 → 系统当前不具备这些能力（缺失即结论，非待验证）。
 6. **多实例幂等与并发**：`IdWorker.getIdStr()` 保证单号唯一（`uk_order_no`），但同一用户重复提交订单的去重机制未见证据。
